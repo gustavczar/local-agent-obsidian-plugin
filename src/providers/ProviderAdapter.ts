@@ -1,4 +1,6 @@
-import { ChatMessage } from "../types";
+import { ChatMessage, ProviderConfig } from "../types";
+import { AnthropicAdapter } from "./AnthropicAdapter";
+import { OpenAICompatibleAdapter } from "./OpenAICompatibleAdapter";
 
 export interface StreamOpts { system: string; signal?: AbortSignal; }
 
@@ -35,4 +37,8 @@ export async function* sseLines(body: ReadableStream<Uint8Array>): AsyncIterable
       }
     }
   }
+}
+
+export function makeAdapter(cfg: ProviderConfig): ProviderAdapter {
+  return cfg.kind === "anthropic" ? new AnthropicAdapter(cfg) : new OpenAICompatibleAdapter(cfg);
 }
