@@ -41,7 +41,7 @@ export class OfficeView extends ItemView {
 
     for (const r of layout.rooms) {
       svg.createSvg("rect", { cls: "lao-room", attr: { x: r.x, y: r.y, width: r.w, height: r.h, rx: 6 } });
-      svg.createSvg("text", { cls: "lao-room-label", attr: { x: r.x + 8, y: r.y + 16 }, text: `SALA · ${r.name.toUpperCase()}` });
+      svg.createSvg("text", { cls: "lao-room-label", attr: { x: r.x + 8, y: r.y + 16 } }).textContent = `SALA · ${r.name.toUpperCase()}`;
     }
 
     const byName = new Map(layout.nodes.map((n) => [n.name, n]));
@@ -57,7 +57,7 @@ export class OfficeView extends ItemView {
     for (const n of layout.nodes) {
       const cls = this.workingAgents.has(n.name) ? "lao-node working" : "lao-node idle";
       const dot = svg.createSvg("circle", { cls, attr: { cx: n.x, cy: n.y, r: 9 } });
-      svg.createSvg("text", { cls: "lao-node-label", attr: { x: n.x, y: n.y + 24, "text-anchor": "middle" }, text: n.title.split("—")[0].trim() });
+      svg.createSvg("text", { cls: "lao-node-label", attr: { x: n.x, y: n.y + 24, "text-anchor": "middle" } }).textContent = n.title.split("—")[0].trim();
       this.attachDrag(dot, n.name, svg);
       dot.addEventListener("click", () => this.openChat(n.name));
     }
