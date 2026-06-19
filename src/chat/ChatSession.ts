@@ -11,8 +11,15 @@ export class ChatSession {
 
   constructor(private agent: Agent, private adapter: ProviderAdapter, private resolve: NotesResolver) {}
 
-  onToken(cb: (t: string) => void) { this.tokenCbs.push(cb); }
-  onStateChange(cb: (working: boolean) => void) { this.stateCbs.push(cb); }
+  /** Returns an unsubscribe fn so callers can scope a listener to one send. */
+  onToken(cb: (t: string) => void): () => void {
+    this.tokenCbs.push(cb);
+    return () => { this.tokenCbs = this.tokenCbs.filter((c) => c !== cb); };
+  }
+  onStateChange(cb: (working: boolean) => void): () => void {
+    this.stateCbs.push(cb);
+    return () => { this.stateCbs = this.stateCbs.filter((c) => c !== cb); };
+  }
   private setWorking(w: boolean) { for (const cb of this.stateCbs) cb(w); }
 
   async send(text: string, mentions: string[] = []): Promise<void> {

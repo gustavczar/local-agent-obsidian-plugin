@@ -63,9 +63,10 @@ export class ChatView extends ItemView {
     this.inputEl.value = "";
     this.addBubble("user", text);
     const replyEl = this.addBubble("assistant", "");
-    this.session.onToken((t) => { replyEl.textContent += t; this.logEl.scrollTop = this.logEl.scrollHeight; });
+    const off = this.session.onToken((t) => { replyEl.textContent += t; this.logEl.scrollTop = this.logEl.scrollHeight; });
     const mentions = this.mentions; this.mentions = [];
     try { await this.session.send(text, mentions); }
     catch (e) { replyEl.textContent = `⚠️ ${(e as Error).message}`; }
+    finally { off(); }
   }
 }

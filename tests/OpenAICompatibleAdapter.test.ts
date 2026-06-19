@@ -29,4 +29,10 @@ describe("OpenAICompatibleAdapter", () => {
     await expect(async () => { for await (const _ of a.stream([{ role: "user", content: "hi" }], { system: "s" })) {} })
       .rejects.toThrow(/401/);
   });
+
+  it("throws a clear error when baseURL is missing (M3 regression)", async () => {
+    const a = new OpenAICompatibleAdapter({ id: "x", kind: "openai-compat", model: "m", apiKey: "k" });
+    await expect(async () => { for await (const _ of a.stream([{ role: "user", content: "hi" }], { system: "s" })) {} })
+      .rejects.toThrow(/Base URL/);
+  });
 });

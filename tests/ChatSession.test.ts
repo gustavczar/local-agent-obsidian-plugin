@@ -26,4 +26,20 @@ describe("ChatSession", () => {
     ]);
     expect(states).toEqual([true, false]);
   });
+
+  it("onToken unsubscribe stops a listener from receiving later tokens (H1 regression)", async () => {
+    const session = new ChatSession(agent, fakeAdapter as any, async () => []);
+
+    let first = "";
+    const off = session.onToken((t) => (first += t));
+    await session.send("oi");      // first listener active
+    off();                          // scope it to that send
+
+    let second = "";
+    session.onToken((t) => (second += t));
+    await session.send("de novo"); // only the second listener should fire
+
+    expect(first).toBe("Hello");   // NOT "HelloHello" — no leak into the old bubble
+    expect(second).toBe("Hello");
+  });
 });

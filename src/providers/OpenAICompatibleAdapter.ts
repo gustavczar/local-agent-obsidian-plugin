@@ -5,7 +5,8 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
   constructor(private cfg: ProviderConfig) {}
 
   async *stream(messages: ChatMessage[], opts: StreamOpts): AsyncIterable<string> {
-    const url = `${this.cfg.baseURL!.replace(/\/+$/, "")}/chat/completions`;
+    if (!this.cfg.baseURL) throw new Error("Base URL não configurada para este provider.");
+    const url = `${this.cfg.baseURL.replace(/\/+$/, "")}/chat/completions`;
     const res = await fetch(url, {
       method: "POST",
       headers: {
