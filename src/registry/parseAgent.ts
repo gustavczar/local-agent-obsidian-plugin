@@ -1,0 +1,36 @@
+import { Agent } from "../types";
+
+const CONEXOES_RE = /\n#{1,6}\s*(?:🔗\s*)?Conex(?:ões|oes)[\s\S]*$/i;
+const WIKILINK_RE = /\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g;
+
+function capitalize(s: string): string {
+  return s.length ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+function deriveRoom(tags: unknown): string {
+  const list = Array.isArray(tags) ? tags.map(String) : [];
+  for (const t of list) {
+    const m = t.match(/#?agente\/([a-z0-9\-_]+)/i);
+    if (m) return capitalize(m[1]);
+  }
+  return "Geral";
+}
+
+export function parseAgent(
+  frontmatter: Record<string, any>,
+  body: string,
+  filePath: string,
+): Agent {
+  const name = String(frontmatter.name ?? "").trim() || filePath;
+  const title = String(frontmatter.title ?? "").trim() || name;
+  const room = deriveRoom(frontmatter.tags);
+
+  const connections: string[] = [];
+  for (const m of body.matchAll(WIKILINK_RE)) {
+    connections.push(m[1].trim());
+  }
+
+  const systemPrompt = body.replace(CONEXOES_RE, "").trim();
+
+  return { name, title, systemPrompt, room, connections: [...new Set(connections)], filePath };
+}
