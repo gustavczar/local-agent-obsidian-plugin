@@ -7,3 +7,10 @@
 .lao-node.working { fill: var(--interactive-accent);
   filter: drop-shadow(0 0 6px var(--interactive-accent)) drop-shadow(0 0 12px var(--interactive-accent)); }
 .lao-node-label { fill: var(--text-normal); font: 600 9px var(--font-monospace); pointer-events: none; }
+.lao-chat { display: flex; flex-direction: column; height: 100%; }
+.lao-chat-log { flex: 1; overflow-y: auto; padding: 12px; }
+.lao-msg { margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; max-width: 85%; }
+.lao-msg.user { background: var(--interactive-accent); color: var(--text-on-accent); margin-left: auto; }
+.lao-msg.assistant { background: var(--background-secondary); }
+.lao-chat-bar { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--background-modifier-border); }
+.lao-chat-input { flex: 1; }
