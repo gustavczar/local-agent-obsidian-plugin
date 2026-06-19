@@ -15,7 +15,7 @@ Turn your Obsidian vault's AI agents into a living, observable office. Each agen
 3. Open the office via the ribbon icon or the "Open Agent Office" command.
 
 ## Defining an agent
-See `examples/agents/`. Any `.md` under your agents folder with a `#sistema/sub-agente` or `#agente/*` tag becomes a worker.
+Any `.md` under your agents folder with a `#sistema/sub-agente` or `#agente/*` tag becomes a worker. See `examples/agents/` for starters, and **[`skills/agent-authoring/SKILL.md`](skills/agent-authoring/SKILL.md)** for the full authoring contract (frontmatter, rooms, `## Connections`, context). That file is also a Claude Code / agent skill — drop it into your agent's skills so your AI can help you write agents.
 
 ## Security
 API keys are stored in the plugin's `data.json` inside your vault. **Do not commit `data.json` to a public backup.** The plugin sends requests only to the provider endpoint you configure; no telemetry.
