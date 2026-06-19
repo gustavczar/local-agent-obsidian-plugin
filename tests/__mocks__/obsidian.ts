@@ -17,3 +17,6 @@ export interface MetadataCache {
   getFileCache(f: TFile): CachedMetadata | null;
 }
 export interface App { vault: Vault; metadataCache: MetadataCache; }
+export interface MetadataCacheWithLinks extends MetadataCache {
+  getFirstLinkpathDest(linkpath: string, sourcePath: string): TFile | null;
+}
