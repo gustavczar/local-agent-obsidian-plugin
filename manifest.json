@@ -1,0 +1,10 @@
+{
+  "id": "local-agent-office",
+  "name": "Local Agent Office",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A spatial office to manage and chat 1:1 with your vault's AI agents.",
+  "author": "Gustavo Lourenço",
+  "authorUrl": "https://github.com/gustavczar",
+  "isDesktopOnly": true
+}

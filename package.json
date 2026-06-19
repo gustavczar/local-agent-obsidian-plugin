@@ -1,0 +1,19 @@
+{
+  "name": "local-agent-office",
+  "version": "0.1.0",
+  "description": "Spatial office for vault AI agents.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
