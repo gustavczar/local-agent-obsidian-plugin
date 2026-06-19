@@ -1,0 +1,35 @@
+import { Agent, ChatMessage } from "../types";
+import { ProviderAdapter } from "../providers/ProviderAdapter";
+import { buildPrompt } from "../context/ContextBuilder";
+
+type NotesResolver = (agent: Agent, mentions: string[]) => Promise<{ path: string; content: string }[]>;
+
+export class ChatSession {
+  messages: ChatMessage[] = [];
+  private tokenCbs: Array<(t: string) => void> = [];
+  private stateCbs: Array<(working: boolean) => void> = [];
+
+  constructor(private agent: Agent, private adapter: ProviderAdapter, private resolve: NotesResolver) {}
+
+  onToken(cb: (t: string) => void) { this.tokenCbs.push(cb); }
+  onStateChange(cb: (working: boolean) => void) { this.stateCbs.push(cb); }
+  private setWorking(w: boolean) { for (const cb of this.stateCbs) cb(w); }
+
+  async send(text: string, mentions: string[] = []): Promise<void> {
+    this.messages.push({ role: "user", content: text });
+    const notes = await this.resolve(this.agent, mentions);
+    const { system, messages } = buildPrompt(this.agent, this.messages, notes);
+
+    this.setWorking(true);
+    let reply = "";
+    try {
+      for await (const tok of this.adapter.stream(messages, { system })) {
+        reply += tok;
+        for (const cb of this.tokenCbs) cb(tok);
+      }
+      this.messages.push({ role: "assistant", content: reply });
+    } finally {
+      this.setWorking(false);
+    }
+  }
+}
