@@ -1,1 +1,9 @@
-
+.lao-office { width: 100%; height: 100%; background: var(--background-primary); }
+.lao-room { fill: transparent; stroke: var(--background-modifier-border); stroke-width: 1.5; }
+.lao-room-label { fill: var(--text-muted); font: 600 10px var(--font-monospace); letter-spacing: .5px; }
+.lao-link { stroke: var(--interactive-accent); stroke-width: 1.2; opacity: .45; }
+.lao-node { fill: var(--text-muted); cursor: pointer; transition: filter .2s; }
+.lao-node.idle { fill: var(--background-modifier-border); }
+.lao-node.working { fill: var(--interactive-accent);
+  filter: drop-shadow(0 0 6px var(--interactive-accent)) drop-shadow(0 0 12px var(--interactive-accent)); }
+.lao-node-label { fill: var(--text-normal); font: 600 9px var(--font-monospace); pointer-events: none; }
