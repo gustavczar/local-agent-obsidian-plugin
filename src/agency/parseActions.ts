@@ -18,8 +18,11 @@ function extractJsonObject(text: string): string | null {
 
 function toAction(raw: any): AgentAction | null {
   if (!raw || typeof raw !== "object") return null;
-  const path = typeof raw.path === "string" ? raw.path.trim() : "";
   const content = typeof raw.content === "string" ? raw.content : "";
+  if (raw.tool === "append_memory") {
+    return content ? { tool: "append_memory", content } : null;
+  }
+  const path = typeof raw.path === "string" ? raw.path.trim() : "";
   if (!path) return null;
   if (raw.tool === "create_note") {
     return content ? { tool: "create_note", path, content } : null;

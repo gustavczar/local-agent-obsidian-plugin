@@ -34,16 +34,21 @@ export class ActionApprovalModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    const isCreate = this.act.tool === "create_note";
+    const tool = this.act.tool;
 
     contentEl.createEl("h3", { text: `Ação ${this.idx} de ${this.total} · ${this.agentName}` });
 
-    const badge = contentEl.createDiv({ cls: `lao-tool-badge ${isCreate ? "is-create" : "is-edit"}` });
-    badge.setText(isCreate ? "criar nota" : `editar nota (${(this.act as any).mode ?? "append"})`);
+    let badgeText: string, badgeCls: string;
+    if (tool === "create_note") { badgeText = "criar nota"; badgeCls = "is-create"; }
+    else if (tool === "edit_note") { badgeText = `editar nota (${this.act.mode})`; badgeCls = "is-edit"; }
+    else { badgeText = "anotar memória"; badgeCls = "is-memory"; }
+    const badge = contentEl.createDiv({ cls: `lao-tool-badge ${badgeCls}` });
+    badge.setText(badgeText);
 
-    contentEl.createEl("p", { cls: "setting-item-description", text: `Caminho: ${this.finalPath}` });
+    const pathLabel = tool === "append_memory" ? `Memória do agente: ${this.finalPath}` : `Caminho: ${this.finalPath}`;
+    contentEl.createEl("p", { cls: "setting-item-description", text: pathLabel });
 
-    if (!isCreate && this.currentContent != null) {
+    if (tool === "edit_note" && this.currentContent != null) {
       const newWhole = (this.act as any).mode === "replace"
         ? this.act.content
         : this.currentContent + "\n\n" + this.act.content;

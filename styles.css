@@ -302,6 +302,7 @@
 .lao-tool-badge { display:inline-block; padding:2px 10px; border-radius:6px; font-size:12px; font-weight:600; margin:4px 0 8px; }
 .lao-tool-badge.is-create { background: var(--color-green, #1d9e75); color:#fff; }
 .lao-tool-badge.is-edit { background: var(--color-orange, #ba7517); color:#fff; }
+.lao-tool-badge.is-memory { background: var(--color-purple, #534AB7); color:#fff; }
 .lao-diff { font-family: var(--font-monospace); font-size:12px; max-height:200px; overflow:auto; border:1px solid var(--background-modifier-border); border-radius:6px; padding:6px; margin-bottom:10px; }
 .lao-diff-row { white-space:pre-wrap; }
 .lao-diff-row.is-add { background: rgba(29,158,117,.15); }

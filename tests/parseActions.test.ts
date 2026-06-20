@@ -22,6 +22,15 @@ describe("parseActions", () => {
     expect(out).toEqual([{ tool: "create_note", path: "ok.md", content: "z" }]);
   });
 
+  it("parses append_memory (no path required)", () => {
+    const out = parseActions('{"actions":[{"tool":"append_memory","content":"aprendi X"}]}');
+    expect(out).toEqual([{ tool: "append_memory", content: "aprendi X" }]);
+  });
+
+  it("drops append_memory without content", () => {
+    expect(parseActions('{"actions":[{"tool":"append_memory","content":""}]}')).toEqual([]);
+  });
+
   it("returns [] for valid JSON with empty actions", () => {
     expect(parseActions('{"actions":[]}')).toEqual([]);
   });

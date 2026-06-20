@@ -30,4 +30,5 @@ export interface BuiltPrompt { system: string; messages: ChatMessage[]; }
 
 export type AgentAction =
   | { tool: "create_note"; path: string; content: string }
-  | { tool: "edit_note"; path: string; mode: "append" | "replace"; content: string };
+  | { tool: "edit_note"; path: string; mode: "append" | "replace"; content: string }
+  | { tool: "append_memory"; content: string };

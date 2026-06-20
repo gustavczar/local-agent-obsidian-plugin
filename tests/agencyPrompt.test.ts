@@ -1,11 +1,35 @@
 import { describe, it, expect } from "vitest";
-import { AGENCY_DIRECTIVE, sanitizePath, resolveTargetPath, provenanceFooter } from "../src/agency/agencyPrompt";
+import { AGENCY_DIRECTIVE, sanitizePath, resolveTargetPath, provenanceFooter, addToMemory } from "../src/agency/agencyPrompt";
 
 describe("AGENCY_DIRECTIVE", () => {
-  it("cites both tools and the json contract", () => {
+  it("cites the tools and the json contract", () => {
     expect(AGENCY_DIRECTIVE).toContain("create_note");
     expect(AGENCY_DIRECTIVE).toContain("edit_note");
+    expect(AGENCY_DIRECTIVE).toContain("append_memory");
     expect(AGENCY_DIRECTIVE).toContain('"actions"');
+  });
+});
+
+describe("addToMemory", () => {
+  it("inserts a bullet under an existing memory section", () => {
+    const body = "You are X.\n\n## 🧠 Memória\n- antigo\n\n## Conexões\n- [[Y]]";
+    const out = addToMemory(body, "novo aprendizado");
+    expect(out).toContain("## 🧠 Memória\n- novo aprendizado\n- antigo");
+    expect(out).toContain("## Conexões");
+  });
+
+  it("creates the memory section before Conexões when absent", () => {
+    const body = "You are X.\n\n## Conexões\n- [[Y]]";
+    const out = addToMemory(body, "primeiro");
+    expect(out.indexOf("## 🧠 Memória")).toBeGreaterThan(-1);
+    expect(out.indexOf("## 🧠 Memória")).toBeLessThan(out.indexOf("## Conexões"));
+    expect(out).toContain("- primeiro");
+  });
+
+  it("appends the section at the end when there is no Conexões", () => {
+    const out = addToMemory("You are X.", "aprendi");
+    expect(out).toContain("You are X.");
+    expect(out.trimEnd().endsWith("- aprendi")).toBe(true);
   });
 });
 

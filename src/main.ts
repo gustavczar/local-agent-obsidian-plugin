@@ -21,7 +21,7 @@ import { buildSquadRun, SquadStepResult } from "./squad/buildSquadRun";
 import { StepApprovalModal } from "./squad/StepApprovalModal";
 import { Agent, ChatMessage, AgentAction } from "./types";
 import { parseActions } from "./agency/parseActions";
-import { resolveTargetPath, provenanceFooter, stripTrailingProvenance } from "./agency/agencyPrompt";
+import { resolveTargetPath, provenanceFooter, stripTrailingProvenance, addToMemory } from "./agency/agencyPrompt";
 import { extractWikilinks } from "./context/extractWikilinks";
 import { ActionApprovalModal } from "./agency/ActionApprovalModal";
 import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
@@ -315,7 +315,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const linktext = baseName(agent.filePath);
     for (let i = 0; i < actions.length; i++) {
       const act = actions[i];
-      const finalPath = resolveTargetPath(act.path, this.data.agencyFolder, this.data.conversationsFolder);
+      const finalPath = act.tool === "append_memory"
+        ? agent.filePath
+        : resolveTargetPath(act.path, this.data.agencyFolder, this.data.conversationsFolder);
       let cur: string | null = null;
       if (act.tool === "edit_note") {
         const f = this.app.vault.getAbstractFileByPath(finalPath);
@@ -340,6 +342,12 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private async executeAction(act: AgentAction, finalPath: string, linktext: string): Promise<ActionResult> {
     const footer = provenanceFooter(linktext, new Date());
     const existing = this.app.vault.getAbstractFileByPath(finalPath);
+    if (act.tool === "append_memory") {
+      if (!(existing instanceof TFile)) return { status: "failed", path: finalPath, err: "nota do agente não encontrada" };
+      const stamp = new Date().toISOString().slice(0, 10);
+      await this.app.vault.process(existing, (d) => addToMemory(d, `(${stamp}) ${act.content}`));
+      return { status: "remembered", path: finalPath };
+    }
     if (act.tool === "edit_note" && existing instanceof TFile) {
       await this.app.vault.process(existing, (d) =>
         act.mode === "replace" ? act.content + footer : stripTrailingProvenance(d) + "\n\n" + act.content + footer);
