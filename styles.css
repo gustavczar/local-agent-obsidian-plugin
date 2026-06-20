@@ -231,6 +231,10 @@
 /* @agent inline answer callout */
 .callout[data-callout="agent"] { --callout-color: 124, 92, 255; --callout-icon: lucide-bot; }
 
+/* Squad step approval modal */
+.lao-step-output { width: 100%; resize: vertical; font-size: 13px; line-height: 1.5; }
+.lao-step-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; flex-wrap: wrap; }
+
 /* ============ Chat ============ */
 .lao-chat { display: flex; flex-direction: column; height: 100%; }
 .lao-chat-header {

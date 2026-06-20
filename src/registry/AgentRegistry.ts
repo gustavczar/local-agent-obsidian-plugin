@@ -1,6 +1,7 @@
 import { App } from "obsidian";
 import { Agent } from "../types";
 import { parseAgent } from "./parseAgent";
+import { isSquadFrontmatter } from "../squad/parseSquad";
 
 export class AgentRegistry {
   private agents = new Map<string, Agent>();
@@ -26,6 +27,7 @@ export class AgentRegistry {
     for (const file of this.app.vault.getMarkdownFiles()) {
       if (!this.underFolder(file.path)) continue;
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+      if (isSquadFrontmatter(fm)) continue; // squad notes are not agents
       const body = await this.app.vault.read(file);
       const agent = parseAgent(fm, stripFrontmatter(body), file.path);
       this.agents.set(agent.name, agent);

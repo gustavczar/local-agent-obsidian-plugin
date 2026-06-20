@@ -16,6 +16,9 @@ import { addConnectionToBody } from "./office/addConnection";
 import { ARCHITECT_SYSTEM, extractAgentNote, parseNameFromNote } from "./office/architectPrompt";
 import { buildCanvas } from "./canvas/buildCanvas";
 import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
+import { parseSquad, Squad } from "./squad/parseSquad";
+import { buildSquadRun, SquadStepResult } from "./squad/buildSquadRun";
+import { StepApprovalModal } from "./squad/StepApprovalModal";
 import { Agent, ChatMessage } from "./types";
 
 export default class LocalAgentOfficePlugin extends Plugin {
@@ -58,6 +61,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
       id: "generate-canvas-mention",
       name: "Gerar Canvas da @menção na linha atual",
       editorCallback: (editor) => void this.generateCanvasFromMention(editor),
+    });
+    this.addCommand({
+      id: "run-squad",
+      name: "Rodar squad (nota atual)",
+      callback: () => void this.runSquadActive(),
     });
     this.addSettingTab(new SettingsTab(this.app, this));
 
@@ -122,6 +130,61 @@ export default class LocalAgentOfficePlugin extends Plugin {
     catch (e) { off(); notice.hide(); new Notice(`⚠️ ${(e as Error).message}`); return null; }
     off(); notice.hide();
     return reply;
+  }
+
+  private resolveAgentRef(ref: string): Agent | undefined {
+    const t = ref.trim().toLowerCase();
+    return this.registry.all().find(
+      (a) => a.name.toLowerCase() === t || baseName(a.filePath).toLowerCase() === t || displayName(a).toLowerCase() === t,
+    );
+  }
+
+  // Epic D — orchestration: run a squad note's steps in sequence, with per-step approval. Each step feeds the next (X→Y).
+  private async runSquadActive() {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) { new Notice("Abra a nota do squad e rode o comando nela."); return; }
+    const squad = parseSquad(await this.app.vault.read(file));
+    if (!squad.steps.length) { new Notice("Nenhum passo encontrado. Use: 1. [[agente]]: instrução"); return; }
+    await this.runSquad(squad);
+  }
+
+  private async runSquad(squad: Squad) {
+    const results: SquadStepResult[] = [];
+    let prev = "";
+    for (let i = 0; i < squad.steps.length; i++) {
+      const step = squad.steps[i];
+      const agent = this.resolveAgentRef(step.agentRef);
+      if (!agent) { new Notice(`Agente "${step.agentRef}" (passo ${i + 1}) não encontrado.`); return; }
+
+      let approved = false;
+      while (!approved) {
+        this.office?.setActivity(agent.name, "working");
+        const msg = prev
+          ? `${step.instruction}\n\n--- Resultado do passo anterior (use como base) ---\n${prev}`
+          : step.instruction;
+        const out = await this.rawAgentCall(agent, msg, []);
+        this.office?.setActivity(agent.name, "idle");
+        if (out == null) return; // error/timeout already surfaced
+
+        const decision = await new StepApprovalModal(this.app, i + 1, displayName(agent), out.trim()).openAndWait();
+        if (decision.action === "cancel") { new Notice("Squad cancelado."); return; }
+        if (decision.action === "redo") continue;
+        prev = decision.text;
+        results.push({ agent: displayName(agent), instruction: step.instruction, output: decision.text });
+        approved = true;
+      }
+    }
+
+    const now = new Date();
+    const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    const safe = (squad.name.replace(/[\\/:*?"<>|]/g, "-").slice(0, 40).trim()) || "squad";
+    const path = (folder ? `${folder}/` : "") + `Squad ${safe} ${now.getTime()}.md`;
+    const file = await this.app.vault.create(path, buildSquadRun(squad.name, results, now));
+    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    new Notice(`Squad "${squad.name}" concluído — ${results.length} passos.`);
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
