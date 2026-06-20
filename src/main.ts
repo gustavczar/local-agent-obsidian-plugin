@@ -136,41 +136,61 @@ export default class LocalAgentOfficePlugin extends Plugin {
     return reply;
   }
 
-  // Epic D — run an agent; if it delegates to a peer, run that peer (one hop). onStage reports progress; office visuals too.
+  // Deterministic router: a short classification call picks the best-fit agent for the question.
+  private async routePick(agent: Agent, question: string, candidates: Agent[]): Promise<Agent | null> {
+    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+    if (!cfg) return null;
+    const roster = candidates.map((c) => `- ${displayName(c)} — ${roleText(c) || c.room}`).join("\n");
+    const system = "Você é um roteador que distribui perguntas para o agente certo de um time. Seja preciso.";
+    const msg =
+      `O usuário direcionou esta pergunta a "${displayName(agent)}".\n` +
+      `Pergunta: "${question}"\n\nAgentes disponíveis (nome — especialidade):\n${roster}\n\n` +
+      `Qual UM agente é o mais adequado para responder? Se "${displayName(agent)}" já for adequado, responda o nome dele. ` +
+      `Responda APENAS com o nome exato do agente, nada mais.`;
+    let reply = "";
+    try { for await (const t of makeAdapter(cfg).stream([{ role: "user", content: msg }], { system })) reply += t; }
+    catch { return null; }
+    const name = reply.trim().toLowerCase().replace(/["'.\n]/g, "").trim();
+    if (!name) return null;
+    return (
+      candidates.find((c) => displayName(c).toLowerCase() === name || c.name.toLowerCase() === name) ??
+      candidates.find((c) => name.includes(c.name.toLowerCase()) || (name.length > 2 && displayName(c).toLowerCase().includes(name))) ??
+      null
+    );
+  }
+
+  // Epic D — route the question to the best agent (one hop), then answer. onStage reports progress; office visuals too.
   private async runWithDelegation(
     agent: Agent,
     message: string,
     onStage?: (label: string) => void,
   ): Promise<{ text: string; via?: Agent } | null> {
-    const peers = this.registry.all().filter((a) => a.name !== agent.name);
     const office = this.office;
+    const all = this.registry.all();
     office?.setActivity(agent.name, "working");
-    onStage?.(`⏳ ${displayName(agent)} pensando…`);
+    onStage?.(`⏳ ${displayName(agent)} analisando…`);
 
-    const roster = peers.map((p) => `${displayName(p)} — ${roleText(p) || p.room}`);
-    const first = await this.rawAgentCall(agent, message, roster);
-    if (first == null) { office?.setActivity(agent.name, "idle"); return null; }
-
-    const m = first.match(/DELEGATE:\s*(.+)/i);
-    if (m) {
-      const name = m[1].trim().toLowerCase().replace(/[.”"'\s]+$/, "");
-      const peer = peers.find((p) => displayName(p).toLowerCase() === name || p.name.toLowerCase() === name)
-        ?? peers.find((p) => name.includes(p.name.toLowerCase()) || displayName(p).toLowerCase().includes(name));
-      if (peer) {
+    let answerer = agent;
+    let via: Agent | undefined;
+    if (this.data.autoDelegate && all.length > 1) {
+      const pick = await this.routePick(agent, message, all);
+      if (pick && pick.name !== agent.name) {
+        answerer = pick;
+        via = pick;
         office?.setActivity(agent.name, "waiting");
-        office?.setActivity(peer.name, "working");
-        office?.flashDelegation(agent.name, peer.name);
-        onStage?.(`🤝 ${displayName(agent)} consultando ${displayName(peer)}…`);
-        const second = await this.rawAgentCall(peer, message, []);
-        office?.setActivity(agent.name, "idle");
-        office?.setActivity(peer.name, "idle");
-        if (second == null) return null;
-        return { text: second.trim(), via: peer };
+        office?.setActivity(pick.name, "working");
+        office?.flashDelegation(agent.name, pick.name);
+        onStage?.(`🤝 ${displayName(agent)} encaminhou para ${displayName(pick)}…`);
+      } else {
+        onStage?.(`⏳ ${displayName(agent)} pensando…`);
       }
     }
 
+    const reply = await this.rawAgentCall(answerer, message, []);
     office?.setActivity(agent.name, "idle");
-    return { text: first.trim() };
+    if (via) office?.setActivity(via.name, "idle");
+    if (reply == null) return null;
+    return { text: reply.trim(), via };
   }
 
   // @agent in notes: insert a live status block under the nearest @mention and fill it with the answer.

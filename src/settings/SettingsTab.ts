@@ -51,6 +51,11 @@ export class SettingsTab extends PluginSettingTab {
       .setDesc("Quando não há pastas de contexto, o agente busca as notas mais relevantes à pergunta automaticamente.")
       .addToggle((t) => t.setValue(data.autoConsultVault).onChange(async (v) => { data.autoConsultVault = v; await this.plugin.persist(); }));
 
+    new Setting(containerEl)
+      .setName("Roteamento automático (delegação)")
+      .setDesc("Antes de responder, encaminha a pergunta para o agente mais adequado do time. Desligue para o agente mencionado sempre responder.")
+      .addToggle((t) => t.setValue(data.autoDelegate).onChange(async (v) => { data.autoDelegate = v; await this.plugin.persist(); }));
+
     new Setting(containerEl).setName("Providers").setHeading();
 
     data.providers.forEach((p, i) => {

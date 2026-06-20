@@ -5,6 +5,7 @@ export interface PersistedData {
   conversationsFolder: string;
   contextFolders: string[];
   autoConsultVault: boolean;
+  autoDelegate: boolean;
   positions: Record<string, { x: number; y: number }>;
   providers: ProviderConfig[];
   activeProviderId: string;
@@ -15,6 +16,7 @@ export const DEFAULT_SETTINGS: PersistedData = {
   conversationsFolder: "Conversas Local Agent",
   contextFolders: [],
   autoConsultVault: true,
+  autoDelegate: true,
   positions: {},
   providers: [],
   activeProviderId: "",
@@ -27,6 +29,7 @@ export function withDefaults(raw: Partial<PersistedData> | null): PersistedData 
     conversationsFolder: raw.conversationsFolder ?? DEFAULT_SETTINGS.conversationsFolder,
     contextFolders: raw.contextFolders ?? [],
     autoConsultVault: raw.autoConsultVault ?? DEFAULT_SETTINGS.autoConsultVault,
+    autoDelegate: raw.autoDelegate ?? DEFAULT_SETTINGS.autoDelegate,
     positions: raw.positions ?? {},
     providers: raw.providers ?? DEFAULT_SETTINGS.providers,
     activeProviderId: raw.activeProviderId ?? DEFAULT_SETTINGS.activeProviderId,
