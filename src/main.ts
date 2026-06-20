@@ -66,7 +66,8 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private makeSession(agent: Agent): ChatSession {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); throw new Error("No active provider"); }
-    return new ChatSession(agent, makeAdapter(cfg), (a, mentions) => resolveNotes(this.app, a, mentions, this.data.contextFolders));
+    return new ChatSession(agent, makeAdapter(cfg), (a, mentions, query) =>
+      resolveNotes(this.app, a, mentions, this.data.contextFolders, query, this.data.autoConsultVault));
   }
 
   private async openOffice() {

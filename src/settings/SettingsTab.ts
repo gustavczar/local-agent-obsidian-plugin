@@ -30,6 +30,11 @@ export class SettingsTab extends PluginSettingTab {
         t.inputEl.rows = 3;
       });
 
+    new Setting(containerEl)
+      .setName("Auto-consultar o cofre")
+      .setDesc("Quando não há pastas de contexto, o agente busca as notas mais relevantes à pergunta automaticamente.")
+      .addToggle((t) => t.setValue(data.autoConsultVault).onChange(async (v) => { data.autoConsultVault = v; await this.plugin.persist(); }));
+
     new Setting(containerEl).setName("Providers").setHeading();
 
     data.providers.forEach((p, i) => {

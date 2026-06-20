@@ -2,7 +2,7 @@ import { Agent, ChatMessage } from "../types";
 import { ProviderAdapter } from "../providers/ProviderAdapter";
 import { buildPrompt } from "../context/ContextBuilder";
 
-type NotesResolver = (agent: Agent, mentions: string[]) => Promise<{ path: string; content: string }[]>;
+type NotesResolver = (agent: Agent, mentions: string[], query: string) => Promise<{ path: string; content: string }[]>;
 
 export class ChatSession {
   messages: ChatMessage[] = [];
@@ -24,7 +24,7 @@ export class ChatSession {
 
   async send(text: string, mentions: string[] = []): Promise<void> {
     this.messages.push({ role: "user", content: text });
-    const notes = await this.resolve(this.agent, mentions);
+    const notes = await this.resolve(this.agent, mentions, text);
     const { system, messages } = buildPrompt(this.agent, this.messages, notes);
 
     this.setWorking(true);

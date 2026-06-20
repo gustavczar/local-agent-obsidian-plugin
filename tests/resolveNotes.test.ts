@@ -49,4 +49,26 @@ describe("resolveNotes", () => {
     expect(paths).not.toContain("Outra Pasta/nao.md");
     expect(paths).toContain("MOC MM.md"); // connection still included
   });
+
+  it("auto-consults the vault for relevant notes when no folders and autoConsult is on", async () => {
+    const map: Record<string, string> = {
+      "MOC MM.md": "conn",
+      "Como Ler Livros.md": "Mortimer Adler, leitura analítica.",
+      "Receita de Bolo.md": "farinha e ovos",
+    };
+    const a = {
+      vault: {
+        read: async (f: any) => map[f.path],
+        getMarkdownFiles: () => Object.keys(map).map((p) => Object.assign(new TFile(p), { path: p, basename: p.replace(/\.md$/, "") })),
+      },
+      metadataCache: {
+        getFirstLinkpathDest: (lp: string) => (map[lp + ".md"] ? Object.assign(new TFile(lp + ".md"), { path: lp + ".md" }) : null),
+      },
+    } as any;
+
+    const out = await resolveNotes(a, agent, [], [], "como escrever um livro sobre leitura", true);
+    const paths = out.map((n) => n.path);
+    expect(paths).toContain("Como Ler Livros.md");
+    expect(paths).not.toContain("Receita de Bolo.md");
+  });
 });
