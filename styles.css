@@ -51,6 +51,7 @@
   cursor: pointer;
 }
 .lao-add-btn { height: 28px; font: 600 11px/1 var(--font-interface); cursor: pointer; }
+.lao-folder-status { margin: -6px 0 14px; padding-left: 2px; }
 
 /* Floor: responsive grid of room panels */
 .lao-floor {

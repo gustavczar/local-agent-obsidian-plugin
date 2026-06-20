@@ -12,8 +12,24 @@ export class SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Pasta de agentes")
-      .setDesc("Pasta varrida em busca de .md de agentes.")
-      .addText((t) => t.setValue(data.agentsFolder).onChange(async (v) => { data.agentsFolder = v.trim(); await this.plugin.persist(); }));
+      .setDesc("Pasta varrida em busca de .md de agentes. Mantenha seus agentes aqui para não ficarem soltos.")
+      .addText((t) => t.setValue(data.agentsFolder).onChange(async (v) => {
+        data.agentsFolder = v.trim();
+        this.plugin.registry.setFolder(data.agentsFolder);
+        await this.plugin.persist();
+        await this.plugin.registry.load();
+        this.display();
+      }));
+
+    const folderPath = (data.agentsFolder ?? "").replace(/\/+$/, "").trim();
+    const exists = !!folderPath && !!this.app.vault.getAbstractFileByPath(folderPath);
+    const count = this.plugin.registry.all().length;
+    const status = containerEl.createDiv({ cls: "setting-item-description lao-folder-status" });
+    status.setText(
+      exists
+        ? `✓ Pasta encontrada — ${count} agente(s).`
+        : `⚠ A pasta "${folderPath || "(vazia)"}" ainda não existe. Crie um agente (cria a pasta) ou ajuste o caminho.`,
+    );
 
     new Setting(containerEl)
       .setName("Pasta de conversas")
