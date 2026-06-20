@@ -64,6 +64,12 @@ export class OfficeView extends ItemView {
     if (dot) (dot as HTMLElement).toggleClass("working", working);
   }
 
+  private openSettings() {
+    const setting = (this.app as any).setting;
+    setting?.open?.();
+    setting?.openTabById?.("local-agent-office");
+  }
+
   private render() {
     const host = this.contentEl;
     host.empty();
@@ -90,6 +96,9 @@ export class OfficeView extends ItemView {
       this.clearOverlay();
       if (this.showAllConn) this.drawAllConnections();
     });
+    const gear = bar.createEl("button", { cls: "lao-gear-btn", attr: { "aria-label": "Configurações" } });
+    gear.setText("⚙");
+    gear.addEventListener("click", () => this.openSettings());
 
     // Empty state
     if (!agents.length) {

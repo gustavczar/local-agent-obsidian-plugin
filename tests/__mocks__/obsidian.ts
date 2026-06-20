@@ -7,6 +7,19 @@ export class Notice { constructor(public message: string) {} }
 export class TFile { constructor(public path = "") {} }
 export function parseYaml(_s: string): any { return {}; }
 
+// requestUrl indirection so tests can override the implementation.
+export interface RequestUrlParam {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  throw?: boolean;
+}
+export const obsidianMock = {
+  requestUrl: async (_p: RequestUrlParam): Promise<any> => ({ status: 200, json: {}, text: "" }),
+};
+export function requestUrl(p: RequestUrlParam): Promise<any> { return obsidianMock.requestUrl(p); }
+
 export interface CachedMetadata { frontmatter?: Record<string, any>; }
 export interface Vault {
   getMarkdownFiles(): TFile[];

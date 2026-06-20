@@ -49,7 +49,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private makeSession(agent: Agent): ChatSession {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); throw new Error("No active provider"); }
-    return new ChatSession(agent, makeAdapter(cfg), (a, mentions) => resolveNotes(this.app, a, mentions));
+    return new ChatSession(agent, makeAdapter(cfg), (a, mentions) => resolveNotes(this.app, a, mentions, this.data.contextFolders));
   }
 
   private async openOffice() {
@@ -71,7 +71,12 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const now = new Date();
     const md = buildConversationNote(agent, session.messages, now);
     const safe = agent.name.replace(/[\\/:*?"<>|]/g, "-");
-    const path = `Conversa ${agent.name} ${now.toISOString().slice(0, 10)} ${now.getTime()}.md`.replace(agent.name, safe);
+    const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* already exists */ }
+    }
+    const fileName = `Conversa ${safe} ${now.toISOString().slice(0, 10)} ${now.getTime()}.md`;
+    const path = folder ? `${folder}/${fileName}` : fileName;
     await this.app.vault.create(path, md);
     new Notice(`Cristalizado: ${path}`);
   }

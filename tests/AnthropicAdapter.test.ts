@@ -1,23 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { AnthropicAdapter } from "../src/providers/AnthropicAdapter";
+import { obsidianMock } from "obsidian";
 
-function streamFrom(chunks: string[]): ReadableStream<Uint8Array> {
-  const enc = new TextEncoder();
-  return new ReadableStream({ start(c) { for (const ch of chunks) c.enqueue(enc.encode(ch)); c.close(); } });
+async function collect(it: AsyncIterable<string>): Promise<string> {
+  let out = ""; for await (const t of it) out += t; return out;
 }
 
 describe("AnthropicAdapter", () => {
-  it("yields text from content_block_delta events", async () => {
-    const sse = [
-      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}\n',
-      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" there"}}\n',
-      'data: {"type":"message_stop"}\n',
-    ];
-    globalThis.fetch = vi.fn(async () => new Response(streamFrom(sse), { status: 200 })) as any;
-
+  it("yields the full message text from a non-streaming response", async () => {
+    obsidianMock.requestUrl = async () => ({ status: 200, json: { content: [{ type: "text", text: "Hi there" }] }, text: "" });
     const a = new AnthropicAdapter({ id: "claude", kind: "anthropic", model: "claude-opus-4-8", apiKey: "k" });
-    let out = "";
-    for await (const t of a.stream([{ role: "user", content: "hi" }], { system: "sys" })) out += t;
-    expect(out).toBe("Hi there");
+    expect(await collect(a.stream([{ role: "user", content: "hi" }], { system: "sys" }))).toBe("Hi there");
+  });
+
+  it("throws with status + body on error", async () => {
+    obsidianMock.requestUrl = async () => ({ status: 401, json: { error: { message: "bad key" } }, text: "" });
+    const a = new AnthropicAdapter({ id: "c", kind: "anthropic", model: "m", apiKey: "k" });
+    await expect(collect(a.stream([{ role: "user", content: "hi" }], { system: "s" }))).rejects.toThrow(/401.*bad key/);
   });
 });

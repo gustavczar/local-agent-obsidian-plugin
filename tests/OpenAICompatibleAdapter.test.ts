@@ -1,38 +1,26 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { OpenAICompatibleAdapter } from "../src/providers/OpenAICompatibleAdapter";
+import { obsidianMock } from "obsidian";
 
-function streamFrom(chunks: string[]): ReadableStream<Uint8Array> {
-  const enc = new TextEncoder();
-  return new ReadableStream({
-    start(c) { for (const ch of chunks) c.enqueue(enc.encode(ch)); c.close(); },
-  });
+async function collect(it: AsyncIterable<string>): Promise<string> {
+  let out = ""; for await (const t of it) out += t; return out;
 }
 
 describe("OpenAICompatibleAdapter", () => {
-  it("yields content deltas from SSE", async () => {
-    const sse = [
-      'data: {"choices":[{"delta":{"content":"Hel"}}]}\n',
-      'data: {"choices":[{"delta":{"content":"lo"}}]}\n',
-      "data: [DONE]\n",
-    ];
-    globalThis.fetch = vi.fn(async () => new Response(streamFrom(sse), { status: 200 })) as any;
-
+  it("yields the assistant message content", async () => {
+    obsidianMock.requestUrl = async () => ({ status: 200, json: { choices: [{ message: { content: "Hello" } }] }, text: "" });
     const a = new OpenAICompatibleAdapter({ id: "deepseek", kind: "openai-compat", model: "deepseek-chat", apiKey: "k", baseURL: "https://api.deepseek.com/v1" });
-    let out = "";
-    for await (const t of a.stream([{ role: "user", content: "hi" }], { system: "sys" })) out += t;
-    expect(out).toBe("Hello");
+    expect(await collect(a.stream([{ role: "user", content: "hi" }], { system: "sys" }))).toBe("Hello");
   });
 
-  it("throws on non-200", async () => {
-    globalThis.fetch = vi.fn(async () => new Response("nope", { status: 401 })) as any;
+  it("throws on non-2xx with body", async () => {
+    obsidianMock.requestUrl = async () => ({ status: 401, json: { error: { message: "nope" } }, text: "" });
     const a = new OpenAICompatibleAdapter({ id: "x", kind: "openai-compat", model: "m", apiKey: "k", baseURL: "https://api.x.com/v1" });
-    await expect(async () => { for await (const _ of a.stream([{ role: "user", content: "hi" }], { system: "s" })) {} })
-      .rejects.toThrow(/401/);
+    await expect(collect(a.stream([{ role: "user", content: "hi" }], { system: "s" }))).rejects.toThrow(/401.*nope/);
   });
 
   it("throws a clear error when baseURL is missing (M3 regression)", async () => {
     const a = new OpenAICompatibleAdapter({ id: "x", kind: "openai-compat", model: "m", apiKey: "k" });
-    await expect(async () => { for await (const _ of a.stream([{ role: "user", content: "hi" }], { system: "s" })) {} })
-      .rejects.toThrow(/Base URL/);
+    await expect(collect(a.stream([{ role: "user", content: "hi" }], { system: "s" }))).rejects.toThrow(/Base URL/);
   });
 });

@@ -15,6 +15,21 @@ export class SettingsTab extends PluginSettingTab {
       .setDesc("Pasta varrida em busca de .md de agentes.")
       .addText((t) => t.setValue(data.agentsFolder).onChange(async (v) => { data.agentsFolder = v.trim(); await this.plugin.persist(); }));
 
+    new Setting(containerEl)
+      .setName("Pasta de conversas")
+      .setDesc("Onde as conversas cristalizadas são salvas (criada se não existir).")
+      .addText((t) => t.setPlaceholder("Conversas Local Agent").setValue(data.conversationsFolder)
+        .onChange(async (v) => { data.conversationsFolder = v.trim(); await this.plugin.persist(); }));
+
+    new Setting(containerEl)
+      .setName("Pastas de contexto")
+      .setDesc("Uma pasta por linha. Todo agente consulta as notas dessas pastas (até 12 notas, truncadas).")
+      .addTextArea((t) => {
+        t.setPlaceholder("03. Recursos\n05. Inbox").setValue(data.contextFolders.join("\n"))
+          .onChange(async (v) => { data.contextFolders = v.split("\n").map((s) => s.trim()).filter(Boolean); await this.plugin.persist(); });
+        t.inputEl.rows = 3;
+      });
+
     new Setting(containerEl).setName("Providers").setHeading();
 
     data.providers.forEach((p, i) => {

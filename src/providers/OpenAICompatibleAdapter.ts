@@ -1,13 +1,17 @@
+import { requestUrl } from "obsidian";
 import { ChatMessage, ProviderConfig } from "../types";
-import { ProviderAdapter, StreamOpts, sseLines } from "./ProviderAdapter";
+import { ProviderAdapter, StreamOpts, providerErrorBody } from "./ProviderAdapter";
 
 export class OpenAICompatibleAdapter implements ProviderAdapter {
   constructor(private cfg: ProviderConfig) {}
 
+  // Uses Obsidian's requestUrl (main process) to avoid renderer CORS. Non-streaming: yields the full reply once.
   async *stream(messages: ChatMessage[], opts: StreamOpts): AsyncIterable<string> {
     if (!this.cfg.baseURL) throw new Error("Base URL não configurada para este provider.");
+    if (!this.cfg.model) throw new Error("Modelo não configurado para este provider.");
     const url = `${this.cfg.baseURL.replace(/\/+$/, "")}/chat/completions`;
-    const res = await fetch(url, {
+    const res = await requestUrl({
+      url,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -15,20 +19,16 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       },
       body: JSON.stringify({
         model: this.cfg.model,
-        stream: true,
         messages: [{ role: "system", content: opts.system }, ...messages],
       }),
-      signal: opts.signal,
+      throw: false,
     });
 
-    if (!res.ok || !res.body) throw new Error(`Provider error ${res.status}`);
-
-    for await (const payload of sseLines(res.body)) {
-      try {
-        const json = JSON.parse(payload);
-        const delta = json.choices?.[0]?.delta?.content;
-        if (delta) yield delta as string;
-      } catch { /* ignore keepalive/partial */ }
+    if (res.status < 200 || res.status >= 300) {
+      throw new Error(`Provider ${res.status}: ${providerErrorBody(res)}`);
     }
+
+    const text: string = res.json?.choices?.[0]?.message?.content ?? "";
+    if (text) yield text;
   }
 }

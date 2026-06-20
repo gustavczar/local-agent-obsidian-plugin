@@ -24,4 +24,29 @@ describe("resolveNotes", () => {
     const out = await resolveNotes(app({ "MOC MM.md": "a", "Nota X.md": "b" }), agent, ["Nota X", "MOC MM"]);
     expect(out.map((n) => n.path).sort()).toEqual(["MOC MM.md", "Nota X.md"]);
   });
+
+  it("includes notes under configured context folders", async () => {
+    const map: Record<string, string> = {
+      "MOC MM.md": "a",
+      "05. Inbox/ideia.md": "uma ideia",
+      "05. Inbox/sub/outra.md": "outra",
+      "Outra Pasta/nao.md": "fora",
+    };
+    const a = {
+      vault: {
+        read: async (f: any) => map[f.path],
+        getMarkdownFiles: () => Object.keys(map).map((p) => Object.assign(new TFile(p), { path: p })),
+      },
+      metadataCache: {
+        getFirstLinkpathDest: (lp: string) => (map[lp + ".md"] ? Object.assign(new TFile(lp + ".md"), { path: lp + ".md" }) : null),
+      },
+    } as any;
+
+    const out = await resolveNotes(a, agent, [], ["05. Inbox"]);
+    const paths = out.map((n) => n.path).sort();
+    expect(paths).toContain("05. Inbox/ideia.md");
+    expect(paths).toContain("05. Inbox/sub/outra.md");
+    expect(paths).not.toContain("Outra Pasta/nao.md");
+    expect(paths).toContain("MOC MM.md"); // connection still included
+  });
 });
