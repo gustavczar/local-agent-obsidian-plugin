@@ -34,4 +34,15 @@ describe("buildPrompt", () => {
     const out = buildPrompt(agent, [{ role: "user", content: "oi" }], []);
     expect(out.system).not.toContain("DELEGATE:");
   });
+
+  it("appends the agency directive when agency flag is on", () => {
+    const out = buildPrompt(agent, [{ role: "user", content: "crie nota" }], [], [], true);
+    expect(out.system).toContain("Modo Agência");
+    expect(out.system).toContain('"actions"');
+  });
+
+  it("omits the agency directive by default", () => {
+    const out = buildPrompt(agent, [{ role: "user", content: "oi" }], []);
+    expect(out.system).not.toContain("Modo Agência");
+  });
 });
