@@ -33,3 +33,10 @@ export function provenanceFooter(agentLinktext: string, date: Date): string {
   const d = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   return `\n\n> 🤖 [[${agentLinktext}]] · ${d}`;
 }
+
+const PROV_RE = /\n+>\s*🤖\s*\[\[[^\]]+\]\][^\n]*\s*$/;
+
+/** Removes a trailing provenance footer so re-writes keep a single footer at the bottom. */
+export function stripTrailingProvenance(text: string): string {
+  return text.replace(PROV_RE, "");
+}

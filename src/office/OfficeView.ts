@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, Menu, TFile } from "obsidian";
 import { AgentRegistry } from "../registry/AgentRegistry";
 import { Agent } from "../types";
 import { Pos } from "./layout";
@@ -64,6 +64,20 @@ export class OfficeView extends ItemView {
     const setting = (this.app as any).setting;
     setting?.open?.();
     setting?.openTabById?.("local-agent-office");
+  }
+
+  /** Right-click on a card: quick actions (chat, open agent note, connect, settings). */
+  private showCardMenu(e: MouseEvent, a: Agent) {
+    e.preventDefault();
+    const menu = new Menu();
+    menu.addItem((it) => it.setTitle("Conversar").setIcon("message-square").onClick(() => this.openChat(a.name)));
+    menu.addItem((it) => it.setTitle("Abrir nota do agente").setIcon("file-text").onClick(() => {
+      const f = this.app.vault.getAbstractFileByPath(a.filePath);
+      if (f instanceof TFile) void this.app.workspace.getLeaf(true).openFile(f);
+    }));
+    menu.addItem((it) => it.setTitle("Conectar…").setIcon("link").onClick(() => this.onConnect(a.name)));
+    menu.addItem((it) => it.setTitle("Configurações").setIcon("settings").onClick(() => this.openSettings()));
+    menu.showAtMouseEvent(e);
   }
 
   private render() {
@@ -177,6 +191,7 @@ export class OfficeView extends ItemView {
     connectBtn.addEventListener("click", (e) => { e.stopPropagation(); this.onConnect(a.name); });
 
     card.addEventListener("click", () => this.openChat(a.name));
+    card.addEventListener("contextmenu", (e) => this.showCardMenu(e, a));
     card.addEventListener("mouseenter", () => { if (!this.showAllConn) this.highlightConnections(a); });
     card.addEventListener("mouseleave", () => { if (!this.showAllConn) { this.clearOverlay(); this.clearDim(); } });
   }

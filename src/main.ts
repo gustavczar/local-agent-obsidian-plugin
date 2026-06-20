@@ -21,7 +21,8 @@ import { buildSquadRun, SquadStepResult } from "./squad/buildSquadRun";
 import { StepApprovalModal } from "./squad/StepApprovalModal";
 import { Agent, ChatMessage, AgentAction } from "./types";
 import { parseActions } from "./agency/parseActions";
-import { resolveTargetPath, provenanceFooter } from "./agency/agencyPrompt";
+import { resolveTargetPath, provenanceFooter, stripTrailingProvenance } from "./agency/agencyPrompt";
+import { extractWikilinks } from "./context/extractWikilinks";
 import { ActionApprovalModal } from "./agency/ActionApprovalModal";
 import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
 
@@ -171,7 +172,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         const msg = prev
           ? `${step.instruction}\n\n--- Resultado do passo anterior (use como base) ---\n${prev}`
           : step.instruction;
-        const out = await this.rawAgentCall(agent, msg, []);
+        const out = await this.rawAgentCall(agent, msg, [], false, extractWikilinks(step.instruction));
         this.office?.setActivity(agent.name, "idle");
         if (out == null) return; // error/timeout already surfaced
 
@@ -197,10 +198,10 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
-  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false): Promise<string | null> {
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = []): Promise<string | null> {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
-    const notes = await resolveNotes(this.app, agent, [], this.data.contextFolders, message, this.data.autoConsultVault);
+    const notes = await resolveNotes(this.app, agent, mentions, this.data.contextFolders, message, this.data.autoConsultVault);
     const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates, agency);
     let reply = "";
     try { for await (const t of makeAdapter(cfg).stream(messages, { system })) reply += t; }
@@ -341,7 +342,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const existing = this.app.vault.getAbstractFileByPath(finalPath);
     if (act.tool === "edit_note" && existing instanceof TFile) {
       await this.app.vault.process(existing, (d) =>
-        act.mode === "replace" ? act.content + footer : d + "\n\n" + act.content + footer);
+        act.mode === "replace" ? act.content + footer : stripTrailingProvenance(d) + "\n\n" + act.content + footer);
       return { status: "edited", path: finalPath, mode: act.mode };
     }
     // create_note, OU edit em path inexistente (fallback)
