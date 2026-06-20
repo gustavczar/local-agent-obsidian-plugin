@@ -129,7 +129,8 @@
   border-color: var(--accent);
   box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
 }
-.lao-card.dim { opacity: .32; }
+.lao-card.dim { opacity: .3; }
+.lao-card.dim.linked { opacity: .75; }
 .lao-card.linked { border-color: var(--accent); }
 .lao-card.working {
   border-color: var(--accent);
@@ -203,6 +204,9 @@
 .lao-empty p { font-size: 13px; line-height: 1.5; }
 
 @keyframes lao-bubble { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* @agent inline answer callout */
+.callout[data-callout="agent"] { --callout-color: 124, 92, 255; --callout-icon: lucide-bot; }
 
 /* ============ Chat ============ */
 .lao-chat { display: flex; flex-direction: column; height: 100%; }

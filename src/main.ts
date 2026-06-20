@@ -1,4 +1,5 @@
-import { Plugin, WorkspaceLeaf, Notice, TFile } from "obsidian";
+import { Plugin, WorkspaceLeaf, Notice, TFile, Editor } from "obsidian";
+import { displayName } from "./office/avatar";
 import { withDefaults, PersistedData } from "./store/PluginStore";
 import { AgentRegistry } from "./registry/AgentRegistry";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
@@ -41,6 +42,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     this.addRibbonIcon("building-2", "Open Agent Office", () => void this.openOffice());
     this.addCommand({ id: "open-agent-office", name: "Open Agent Office", callback: () => void this.openOffice() });
+    this.addCommand({
+      id: "answer-inline-mention",
+      name: "Responder @menção na linha atual",
+      editorCallback: (editor) => void this.answerInlineMention(editor),
+    });
     this.addSettingTab(new SettingsTab(this.app, this));
 
     await this.registry.load();
@@ -58,6 +64,41 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private async openOffice() {
     const leaf = this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: OFFICE_VIEW, active: true });
+  }
+
+  // Build #2 — @agent in notes: answer the "@Agent: question" on the cursor line, inline.
+  private async answerInlineMention(editor: Editor) {
+    const lineIdx = editor.getCursor().line;
+    const line = editor.getLine(lineIdx);
+    const m = line.match(/@([^:：]+?)\s*[:：]\s*(.+)$/);
+    if (!m) { new Notice("Formato: @Agente: sua pergunta — na linha do cursor."); return; }
+
+    const token = m[1].trim().toLowerCase();
+    const question = m[2].trim();
+    const agent = this.registry.all().find(
+      (a) => a.name.toLowerCase() === token || displayName(a).toLowerCase() === token,
+    );
+    if (!agent) { new Notice(`Agente "@${m[1].trim()}" não encontrado.`); return; }
+
+    let session: ChatSession;
+    try { session = this.makeSession(agent); } catch { return; }
+
+    const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
+    let reply = "";
+    const off = session.onToken((t) => { reply += t; });
+    try {
+      await session.send(question, []);
+    } catch (e) {
+      off(); notice.hide();
+      new Notice(`⚠️ ${(e as Error).message}`);
+      return;
+    }
+    off(); notice.hide();
+
+    const quoted = (reply.trim() || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
+    const block = `\n\n> [!agent]+ ${agent.title}\n${quoted}\n`;
+    editor.replaceRange(block, { line: lineIdx, ch: editor.getLine(lineIdx).length });
+    new Notice(`${displayName(agent)} respondeu.`);
   }
 
   private openAddAgent() {
@@ -135,8 +176,10 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private async openChatFor(agentName: string) {
     const agent = this.registry.get(agentName);
     if (!agent) return;
-    const leaf: WorkspaceLeaf = this.app.workspace.getLeaf("split", "vertical");
+    const leaf: WorkspaceLeaf | null = this.app.workspace.getRightLeaf(false);
+    if (!leaf) return;
     await leaf.setViewState({ type: CHAT_VIEW, active: true });
+    this.app.workspace.revealLeaf(leaf);
     const view = leaf.view as ChatView;
     view.setAgent(agent);
   }

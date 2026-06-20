@@ -209,7 +209,9 @@ export class OfficeView extends ItemView {
       }
     }
     for (const [name, c] of this.cardEls) {
-      if (linked.has(name)) c.addClass("linked"); else c.addClass("dim");
+      if (name === agent.name) continue; // hovered card stays full
+      c.addClass("dim");
+      if (linked.has(name)) c.addClass("linked");
     }
   }
 
