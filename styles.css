@@ -297,3 +297,12 @@
 .lao-suggest-item.active, .lao-suggest-item:hover { background: var(--background-modifier-hover); }
 .lao-suggest-label { font: 600 12px/1 var(--font-interface); color: var(--text-normal); }
 .lao-suggest-sub { font: 500 10px/1 var(--font-monospace); color: var(--text-muted); margin-left: auto; }
+
+/* ActionApprovalModal */
+.lao-tool-badge { display:inline-block; padding:2px 10px; border-radius:6px; font-size:12px; font-weight:600; margin:4px 0 8px; }
+.lao-tool-badge.is-create { background: var(--color-green, #1d9e75); color:#fff; }
+.lao-tool-badge.is-edit { background: var(--color-orange, #ba7517); color:#fff; }
+.lao-diff { font-family: var(--font-monospace); font-size:12px; max-height:200px; overflow:auto; border:1px solid var(--background-modifier-border); border-radius:6px; padding:6px; margin-bottom:10px; }
+.lao-diff-row { white-space:pre-wrap; }
+.lao-diff-row.is-add { background: rgba(29,158,117,.15); }
+.lao-diff-row.is-del { background: rgba(226,75,74,.15); }
