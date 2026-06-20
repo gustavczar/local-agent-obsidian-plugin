@@ -6,6 +6,7 @@ import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
 import { ChatView, CHAT_VIEW } from "./chat/ChatView";
 import { ChatSession } from "./chat/ChatSession";
 import { resolveNotes } from "./context/resolveNotes";
+import { buildPrompt } from "./context/ContextBuilder";
 import { makeAdapter } from "./providers/ProviderAdapter";
 import { buildConversationNote } from "./chat/crystallize";
 import { SettingsTab } from "./settings/SettingsTab";
@@ -103,19 +104,82 @@ export default class LocalAgentOfficePlugin extends Plugin {
     return reply;
   }
 
-  // Build #2 — @agent in notes: answer the "@Agent: question" on the cursor line, inline.
+  // Resolve an agent's connected agents (the delegation graph).
+  private connectedAgents(agent: Agent): Agent[] {
+    const all = this.registry.all();
+    const out: Agent[] = [];
+    for (const target of agent.connections) {
+      const t = target.trim().toLowerCase();
+      const found = all.find(
+        (a) => a.name.toLowerCase() === t || baseName(a.filePath).toLowerCase() === t || displayName(a).toLowerCase() === t,
+      );
+      if (found && found.name !== agent.name && !out.includes(found)) out.push(found);
+    }
+    return out;
+  }
+
+  // Low-level single call to an agent (with its vault context + optional delegation directive).
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[]): Promise<string | null> {
+    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
+    const notes = await resolveNotes(this.app, agent, [], this.data.contextFolders, message, this.data.autoConsultVault);
+    const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates);
+    let reply = "";
+    try { for await (const t of makeAdapter(cfg).stream(messages, { system })) reply += t; }
+    catch (e) { new Notice(`⚠️ ${(e as Error).message}`); return null; }
+    return reply;
+  }
+
+  // Epic D — run an agent; if it delegates to a connected peer, run that peer (one hop). Drives the office visuals.
+  private async runWithDelegation(agent: Agent, message: string): Promise<{ text: string; via?: Agent } | null> {
+    const peers = this.connectedAgents(agent);
+    const office = this.office;
+    office?.setActivity(agent.name, "working");
+    const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
+
+    const first = await this.rawAgentCall(agent, message, peers.map((p) => displayName(p)));
+    if (first == null) { notice.hide(); office?.setActivity(agent.name, "idle"); return null; }
+
+    const m = first.match(/DELEGATE:\s*(.+)/i);
+    if (m) {
+      const name = m[1].trim().toLowerCase().replace(/[.”"'\s]+$/, "");
+      const peer = peers.find((p) => displayName(p).toLowerCase() === name || p.name.toLowerCase() === name)
+        ?? peers.find((p) => name.includes(p.name.toLowerCase()) || displayName(p).toLowerCase().includes(name));
+      if (peer) {
+        office?.setActivity(agent.name, "waiting");
+        office?.setActivity(peer.name, "working");
+        office?.flashDelegation(agent.name, peer.name);
+        notice.setMessage(`${displayName(agent)} consultou ${displayName(peer)}…`);
+        const second = await this.rawAgentCall(peer, message, []);
+        notice.hide();
+        office?.setActivity(agent.name, "idle");
+        office?.setActivity(peer.name, "idle");
+        if (second == null) return null;
+        return { text: second.trim(), via: peer };
+      }
+    }
+
+    notice.hide();
+    office?.setActivity(agent.name, "idle");
+    return { text: first.trim() };
+  }
+
+  // @agent in notes: answer the "@Agent: question" on the cursor line, inline (with delegation).
   private async answerInlineMention(editor: Editor) {
     const lineIdx = editor.getCursor().line;
     const parsed = this.parseMentionLine(editor.getLine(lineIdx));
     if (!parsed) { new Notice("Formato: @Agente: sua pergunta — na linha do cursor."); return; }
 
-    const reply = await this.runAgentReply(parsed.agent, parsed.rest);
-    if (reply == null) return;
+    const result = await this.runWithDelegation(parsed.agent, parsed.rest);
+    if (!result) return;
 
-    const quoted = (reply.trim() || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
-    const block = `\n\n> [!agent]+ ${parsed.agent.title}\n${quoted}\n`;
+    const head = result.via
+      ? `> [!agent]+ ${parsed.agent.title} → ${result.via.title}\n> 🤝 *${displayName(parsed.agent)} consultou [[${baseName(result.via.filePath)}]]:*\n>`
+      : `> [!agent]+ ${parsed.agent.title}`;
+    const quoted = (result.text || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
+    const block = `\n\n${head}\n${quoted}\n`;
     editor.replaceRange(block, { line: lineIdx, ch: editor.getLine(lineIdx).length });
-    new Notice(`${displayName(parsed.agent)} respondeu.`);
+    new Notice(`${displayName(parsed.agent)} respondeu${result.via ? ` (via ${displayName(result.via)})` : ""}.`);
   }
 
   // Epic A — agent → native Canvas: turn "@Agent: topic" into a .canvas mind map.

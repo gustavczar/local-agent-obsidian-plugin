@@ -35,11 +35,29 @@ export class OfficeView extends ItemView {
   async onOpen() { this.render(); }
 
   setWorking(agentName: string, working: boolean) {
-    if (working) this.workingAgents.add(agentName); else this.workingAgents.delete(agentName);
+    this.setActivity(agentName, working ? "working" : "idle");
+  }
+
+  /** Drives the visible activity state of an agent card: idle | working | waiting. */
+  setActivity(agentName: string, state: "idle" | "working" | "waiting") {
+    if (state === "working") this.workingAgents.add(agentName); else this.workingAgents.delete(agentName);
     const card = this.cardEls.get(agentName);
-    if (card) card.toggleClass("working", working);
-    const dot = card?.querySelector(".lao-status");
-    if (dot) (dot as HTMLElement).toggleClass("working", working);
+    if (!card) return;
+    card.toggleClass("working", state === "working");
+    card.toggleClass("waiting", state === "waiting");
+    const dot = card.querySelector(".lao-status") as HTMLElement | null;
+    if (dot) { dot.toggleClass("working", state === "working"); dot.toggleClass("waiting", state === "waiting"); }
+  }
+
+  /** Briefly animates a delegation line from one agent card to another. */
+  flashDelegation(fromName: string, toName: string) {
+    if (!this.overlay || !this.floorEl) return;
+    const from = this.cardEls.get(fromName);
+    const to = this.cardEls.get(toName);
+    if (!from || !to) return;
+    this.sizeOverlay();
+    this.line(this.center(from), this.center(to), "lao-link delegate");
+    window.setTimeout(() => this.clearOverlay(), 3000);
   }
 
   private openSettings() {

@@ -76,6 +76,14 @@
 .lao-link { stroke-width: 1.4; fill: none; }
 .lao-link.faint { stroke: var(--text-faint); opacity: .25; }
 .lao-link.active { stroke: var(--interactive-accent); opacity: .9; stroke-width: 1.8; }
+.lao-link.delegate {
+  stroke: var(--interactive-accent); stroke-width: 2.4; opacity: 1;
+  stroke-dasharray: 7 6;
+  filter: drop-shadow(0 0 4px var(--interactive-accent));
+  animation: lao-dash .6s linear infinite;
+}
+@keyframes lao-dash { to { stroke-dashoffset: -13; } }
+.lao-status.waiting { background: #e0a23c; box-shadow: 0 0 0 3px color-mix(in srgb, #e0a23c 25%, transparent); animation: lao-pulse 1.2s ease-in-out infinite; }
 
 /* Room panel */
 .lao-room-panel {
@@ -136,6 +144,17 @@
 .lao-card.working {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 0 14px -2px var(--accent);
+}
+.lao-card.waiting {
+  border-color: #e0a23c;
+  box-shadow: 0 0 0 1px #e0a23c, 0 0 12px -2px #e0a23c;
+  opacity: .9;
+}
+.lao-card.waiting::after {
+  content: "esperando…";
+  position: absolute; top: 6px; left: 12px;
+  font: 600 8px/1 var(--font-monospace); letter-spacing: .4px;
+  color: #e0a23c; text-transform: uppercase;
 }
 
 .lao-avatar {

@@ -22,4 +22,15 @@ describe("buildPrompt", () => {
     const out = buildPrompt(agent, [{ role: "user", content: "oi" }], []);
     expect(out.system).toBe("You are Nexo.");
   });
+
+  it("adds a delegation directive listing connected peers", () => {
+    const out = buildPrompt(agent, [{ role: "user", content: "oi" }], [], ["Oráculo", "Pixel"]);
+    expect(out.system).toContain("DELEGATE:");
+    expect(out.system).toContain("Oráculo, Pixel");
+  });
+
+  it("omits the delegation directive when there are no peers", () => {
+    const out = buildPrompt(agent, [{ role: "user", content: "oi" }], []);
+    expect(out.system).not.toContain("DELEGATE:");
+  });
 });
