@@ -34,6 +34,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
       (agent) => this.makeSession(agent),
       (name, working) => this.office?.setWorking(name, working),
       (agent, session) => this.crystallize(agent, session),
+      () => this.registry.all(),
     ));
 
     this.addRibbonIcon("building-2", "Open Agent Office", () => void this.openOffice());
