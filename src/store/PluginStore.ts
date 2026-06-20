@@ -9,6 +9,7 @@ export interface PersistedData {
   positions: Record<string, { x: number; y: number }>;
   providers: ProviderConfig[];
   activeProviderId: string;
+  agencyFolder: string;
 }
 
 export const DEFAULT_SETTINGS: PersistedData = {
@@ -20,6 +21,7 @@ export const DEFAULT_SETTINGS: PersistedData = {
   positions: {},
   providers: [],
   activeProviderId: "",
+  agencyFolder: "",
 };
 
 export function withDefaults(raw: Partial<PersistedData> | null): PersistedData {
@@ -33,5 +35,6 @@ export function withDefaults(raw: Partial<PersistedData> | null): PersistedData 
     positions: raw.positions ?? {},
     providers: raw.providers ?? DEFAULT_SETTINGS.providers,
     activeProviderId: raw.activeProviderId ?? DEFAULT_SETTINGS.activeProviderId,
+    agencyFolder: raw.agencyFolder ?? DEFAULT_SETTINGS.agencyFolder,
   };
 }

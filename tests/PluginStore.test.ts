@@ -13,4 +13,9 @@ describe("PluginStore.withDefaults", () => {
   it("returns full defaults for null", () => {
     expect(withDefaults(null)).toEqual(DEFAULT_SETTINGS);
   });
+
+  it("defaults agencyFolder to empty string", () => {
+    expect(withDefaults(null).agencyFolder).toBe("");
+    expect(withDefaults({ agencyFolder: "X" } as any).agencyFolder).toBe("X");
+  });
 });
