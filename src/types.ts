@@ -27,3 +27,7 @@ export interface ProviderConfig {
 export interface ContextNote { path: string; content: string; }
 
 export interface BuiltPrompt { system: string; messages: ChatMessage[]; }
+
+export type AgentAction =
+  | { tool: "create_note"; path: string; content: string }
+  | { tool: "edit_note"; path: string; mode: "append" | "replace"; content: string };
