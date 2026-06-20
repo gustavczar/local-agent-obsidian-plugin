@@ -19,7 +19,11 @@ import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
 import { parseSquad, Squad } from "./squad/parseSquad";
 import { buildSquadRun, SquadStepResult } from "./squad/buildSquadRun";
 import { StepApprovalModal } from "./squad/StepApprovalModal";
-import { Agent, ChatMessage } from "./types";
+import { Agent, ChatMessage, AgentAction } from "./types";
+import { parseActions } from "./agency/parseActions";
+import { resolveTargetPath, provenanceFooter } from "./agency/agencyPrompt";
+import { ActionApprovalModal } from "./agency/ActionApprovalModal";
+import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
 
 export default class LocalAgentOfficePlugin extends Plugin {
   data!: PersistedData;
@@ -66,6 +70,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
       id: "run-squad",
       name: "Rodar squad (nota atual)",
       callback: () => void this.runSquadActive(),
+    });
+    this.addCommand({
+      id: "act-on-vault",
+      name: "Agir no cofre (@menção)",
+      editorCallback: (editor) => void this.actOnVault(editor),
     });
     this.addSettingTab(new SettingsTab(this.app, this));
 
@@ -188,11 +197,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
-  private async rawAgentCall(agent: Agent, message: string, delegates: string[]): Promise<string | null> {
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false): Promise<string | null> {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
     const notes = await resolveNotes(this.app, agent, [], this.data.contextFolders, message, this.data.autoConsultVault);
-    const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates);
+    const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates, agency);
     let reply = "";
     try { for await (const t of makeAdapter(cfg).stream(messages, { system })) reply += t; }
     catch (e) { new Notice(`⚠️ ${(e as Error).message}`); return null; }
@@ -280,6 +289,73 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const quoted = (result.text || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
     write(`${via}${quoted}`);
     new Notice(`${displayName(agent)} respondeu${result.via ? ` (via ${displayName(result.via)})` : ""}.`);
+  }
+
+  // Agência: o agente propõe ações de escrita; cada uma passa por aprovação; executa e resume inline.
+  private async actOnVault(editor: Editor) {
+    const found = this.findMention(editor);
+    if (!found) { new Notice(this.mentionHelp()); return; }
+    const { lineIdx, agent, rest } = found;
+    const startOff = editor.posToOffset({ line: lineIdx, ch: editor.getLine(lineIdx).length });
+    let curLen = 0;
+    const write = (body: string) => {
+      const block = `\n\n> [!agent]+ ${agent.title}\n${body}\n`;
+      editor.replaceRange(block, editor.offsetToPos(startOff), editor.offsetToPos(startOff + curLen));
+      curLen = block.length;
+    };
+    write("> ⏳ planejando ações…");
+    this.office?.setActivity(agent.name, "working");
+    const reply = await this.rawAgentCall(agent, rest, [], true);
+    if (reply == null) { this.office?.setActivity(agent.name, "idle"); write("> ⚠️ Sem resposta. Cheque o provider ativo."); return; }
+    const actions = parseActions(reply);
+    if (actions == null) { this.office?.setActivity(agent.name, "idle"); write("> ⚠️ O agente não retornou ações válidas."); return; }
+    if (actions.length === 0) { this.office?.setActivity(agent.name, "idle"); write("> ℹ️ Nenhuma ação proposta."); return; }
+    const results: ActionResult[] = [];
+    const linktext = baseName(agent.filePath);
+    for (let i = 0; i < actions.length; i++) {
+      const act = actions[i];
+      const finalPath = resolveTargetPath(act.path, this.data.agencyFolder, this.data.conversationsFolder);
+      let cur: string | null = null;
+      if (act.tool === "edit_note") {
+        const f = this.app.vault.getAbstractFileByPath(finalPath);
+        if (f instanceof TFile) cur = await this.app.vault.read(f);
+      }
+      const decision = await new ActionApprovalModal(this.app, i + 1, actions.length, displayName(agent), act, finalPath, cur).openAndWait();
+      if (decision.action === "cancel") break;
+      if (decision.action === "skip") { results.push({ status: "skipped", path: finalPath }); continue; }
+      try {
+        const r = await this.executeAction({ ...act, content: decision.content }, finalPath, linktext);
+        results.push(r);
+      } catch (e) {
+        results.push({ status: "failed", path: finalPath, err: (e as Error).message });
+      }
+    }
+    this.office?.setActivity(agent.name, "idle");
+    write(buildAgencyReport(displayName(agent), results));
+    new Notice(`${displayName(agent)} agiu no cofre — ${results.length} ação(ões).`);
+  }
+
+  // Executa uma ação aprovada. Edit em path inexistente → cria. Anexa rodapé de proveniência.
+  private async executeAction(act: AgentAction, finalPath: string, linktext: string): Promise<ActionResult> {
+    const footer = provenanceFooter(linktext, new Date());
+    const existing = this.app.vault.getAbstractFileByPath(finalPath);
+    if (act.tool === "edit_note" && existing instanceof TFile) {
+      await this.app.vault.process(existing, (d) =>
+        act.mode === "replace" ? act.content + footer : d + "\n\n" + act.content + footer);
+      return { status: "edited", path: finalPath, mode: act.mode };
+    }
+    // create_note, OU edit em path inexistente (fallback)
+    const folder = finalPath.includes("/") ? finalPath.slice(0, finalPath.lastIndexOf("/")) : "";
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    let path = finalPath;
+    if (this.app.vault.getAbstractFileByPath(path)) {
+      const dot = path.lastIndexOf(".");
+      path = `${path.slice(0, dot)} ${Date.now()}${path.slice(dot)}`;
+    }
+    await this.app.vault.create(path, act.content + footer);
+    return { status: "created", path };
   }
 
   // Epic A — agent → native Canvas: turn "@Agent: topic" into a .canvas mind map.
