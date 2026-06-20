@@ -2,39 +2,17 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { AgentRegistry } from "../registry/AgentRegistry";
 import { Agent } from "../types";
 import { Pos } from "./layout";
+import { accentOf, avatarGlyph, displayName, roleText } from "./avatar";
+import { LiveMap } from "./LiveMap";
 
 export const OFFICE_VIEW = "lao-office-view";
-
-const EMOJI_RE = /\p{Extended_Pictographic}/u;
-
-function hashHue(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-function accentOf(a: Agent): string {
-  return a.accent && a.accent.length ? a.accent : `hsl(${hashHue(a.name)} 52% 60%)`;
-}
-function displayName(a: Agent): string {
-  return a.title.split(/[—–:|]/)[0].trim() || a.name;
-}
-function roleText(a: Agent): string {
-  const parts = a.title.split(/[—–:]/);
-  return parts.length > 1 ? parts.slice(1).join(" — ").trim() : "";
-}
-function avatarGlyph(a: Agent): string {
-  if (a.icon && a.icon.length) return a.icon;
-  const m = a.title.match(EMOJI_RE);
-  if (m) return m[0];
-  const words = displayName(a).split(/\s+/).filter(Boolean);
-  const mono = (words[0]?.[0] ?? "") + (words[1]?.[0] ?? "");
-  return mono.toUpperCase() || (a.name[0] ?? "?").toUpperCase();
-}
 
 export class OfficeView extends ItemView {
   private workingAgents = new Set<string>();
   private filter = "";
   private showAllConn = false;
+  private mode: "map" | "cards" = "map";
+  private liveMap: LiveMap | null = null;
   private cardEls = new Map<string, HTMLElement>();
   private floorEl!: HTMLElement;
   private overlay!: SVGSVGElement;
@@ -55,9 +33,11 @@ export class OfficeView extends ItemView {
   getIcon() { return "building-2"; }
 
   async onOpen() { this.render(); }
+  async onClose() { this.liveMap?.destroy(); this.liveMap = null; }
 
   setWorking(agentName: string, working: boolean) {
     if (working) this.workingAgents.add(agentName); else this.workingAgents.delete(agentName);
+    this.liveMap?.setWorking(agentName, working);
     const card = this.cardEls.get(agentName);
     if (card) card.toggleClass("working", working);
     const dot = card?.querySelector(".lao-status");
@@ -72,6 +52,8 @@ export class OfficeView extends ItemView {
 
   private render() {
     const host = this.contentEl;
+    this.liveMap?.destroy();
+    this.liveMap = null;
     host.empty();
     host.addClass("lao-office-root");
     this.cardEls.clear();
@@ -83,19 +65,33 @@ export class OfficeView extends ItemView {
     bar.createSpan({ cls: "lao-brand", text: "Agent Office" });
     const rooms = new Set(agents.map((a) => a.room));
     bar.createSpan({ cls: "lao-count", text: `${agents.length} agentes · ${rooms.size} salas` });
+
+    const modeWrap = bar.createDiv({ cls: "lao-mode" });
+    const mkMode = (id: "map" | "cards", label: string) => {
+      const b = modeWrap.createEl("button", { cls: "lao-mode-btn", text: label });
+      b.toggleClass("active", this.mode === id);
+      b.addEventListener("click", () => { if (this.mode !== id) { this.mode = id; this.render(); } });
+    };
+    mkMode("map", "Mapa");
+    mkMode("cards", "Cards");
+
     const spacer = bar.createDiv({ cls: "lao-spacer" });
     spacer.style.flex = "1";
-    const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: "Filtrar agentes…" } });
-    search.value = this.filter;
-    search.addEventListener("input", () => { this.filter = search.value.toLowerCase(); this.applyFilter(); });
-    const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: "Conexões" });
-    connBtn.toggleClass("active", this.showAllConn);
-    connBtn.addEventListener("click", () => {
-      this.showAllConn = !this.showAllConn;
+
+    if (this.mode === "cards") {
+      const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: "Filtrar agentes…" } });
+      search.value = this.filter;
+      search.addEventListener("input", () => { this.filter = search.value.toLowerCase(); this.applyFilter(); });
+      const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: "Conexões" });
       connBtn.toggleClass("active", this.showAllConn);
-      this.clearOverlay();
-      if (this.showAllConn) this.drawAllConnections();
-    });
+      connBtn.addEventListener("click", () => {
+        this.showAllConn = !this.showAllConn;
+        connBtn.toggleClass("active", this.showAllConn);
+        this.clearOverlay();
+        if (this.showAllConn) this.drawAllConnections();
+      });
+    }
+
     const gear = bar.createEl("button", { cls: "lao-gear-btn", attr: { "aria-label": "Configurações" } });
     gear.setText("⚙");
     gear.addEventListener("click", () => this.openSettings());
@@ -104,11 +100,25 @@ export class OfficeView extends ItemView {
     if (!agents.length) {
       const empty = host.createDiv({ cls: "lao-empty" });
       empty.createEl("h3", { text: "Nenhum agente encontrado" });
-      empty.createEl("p", { text: "Crie uma nota com frontmatter `name` + tag `#sistema/sub-agente` ou `#agente/<categoria>` dentro da pasta de agentes (Settings → Local Agent Office)." });
+      empty.createEl("p", { text: "Crie uma nota com frontmatter `name` + tag `#sistema/sub-agente` ou `#agente/<categoria>` dentro da pasta de agentes (⚙ Configurações)." });
       return;
     }
 
-    // Floor: grid of room panels
+    if (this.mode === "map") { this.renderMap(host, agents); return; }
+    this.renderCards(host, agents);
+  }
+
+  // ---- Map mode (living office) ----
+
+  private renderMap(host: HTMLElement, agents: Agent[]) {
+    const wrap = host.createDiv({ cls: "lao-map-wrap" });
+    this.liveMap = new LiveMap(wrap, agents, this.workingAgents, (name) => this.openChat(name));
+    this.liveMap.mount();
+  }
+
+  // ---- Cards mode ----
+
+  private renderCards(host: HTMLElement, agents: Agent[]) {
     this.floorEl = host.createDiv({ cls: "lao-floor" });
     this.overlay = this.floorEl.createSvg("svg", { cls: "lao-conn-overlay" });
 
@@ -117,9 +127,7 @@ export class OfficeView extends ItemView {
       if (!byRoom.has(a.room)) byRoom.set(a.room, []);
       byRoom.get(a.room)!.push(a);
     }
-    const roomNames = [...byRoom.keys()].sort((x, y) => x.localeCompare(y));
-
-    for (const room of roomNames) {
+    for (const room of [...byRoom.keys()].sort((x, y) => x.localeCompare(y))) {
       const panel = this.floorEl.createDiv({ cls: "lao-room-panel" });
       const head = panel.createDiv({ cls: "lao-room-head" });
       head.createSpan({ cls: "lao-room-name", text: `SALA · ${room.toUpperCase()}` });
@@ -136,9 +144,8 @@ export class OfficeView extends ItemView {
   }
 
   private renderCard(parent: HTMLElement, a: Agent) {
-    const accent = accentOf(a);
     const card = parent.createDiv({ cls: "lao-card" });
-    card.style.setProperty("--accent", accent);
+    card.style.setProperty("--accent", accentOf(a));
     card.dataset.agent = a.name;
     if (this.workingAgents.has(a.name)) card.addClass("working");
     this.cardEls.set(a.name, card);
@@ -177,7 +184,7 @@ export class OfficeView extends ItemView {
     }
   }
 
-  // ---- connection overlay ----
+  // ---- connection overlay (cards mode) ----
 
   private center(el: HTMLElement): { x: number; y: number } {
     const fr = this.floorEl.getBoundingClientRect();
@@ -215,7 +222,6 @@ export class OfficeView extends ItemView {
       linked.add(target);
       this.line(fc, this.center(card), "lao-link active");
     }
-    // also incoming: agents that link TO this one
     for (const other of this.registry.all()) {
       if (other.connections.includes(agent.name)) {
         const card = this.cardEls.get(other.name);
