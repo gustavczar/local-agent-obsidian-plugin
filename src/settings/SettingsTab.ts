@@ -38,6 +38,12 @@ export class SettingsTab extends PluginSettingTab {
         .onChange(async (v) => { data.conversationsFolder = v.trim(); await this.plugin.persist(); }));
 
     new Setting(containerEl)
+      .setName("Pasta de saída da agência")
+      .setDesc("Onde os agentes criam/editam notas quando não dão um caminho explícito. Vazio = usa a pasta de conversas (ou a raiz).")
+      .addText((t) => t.setPlaceholder("(usa a pasta de conversas)").setValue(this.plugin.data.agencyFolder)
+        .onChange(async (v) => { this.plugin.data.agencyFolder = v.trim(); await this.plugin.persist(); }));
+
+    new Setting(containerEl)
       .setName("Pastas de contexto")
       .setDesc("Uma pasta por linha. Todo agente consulta as notas dessas pastas (até 12 notas, truncadas).")
       .addTextArea((t) => {
