@@ -6,7 +6,12 @@ export interface NewAgentOpts { name: string; title: string; room: string; icon:
 export class AddAgentModal extends Modal {
   private opts: NewAgentOpts = { name: "", title: "", room: "", icon: "", color: "", template: "elite" };
 
-  constructor(app: App, private rooms: string[], private onCreate: (o: NewAgentOpts) => void) { super(app); }
+  constructor(
+    app: App,
+    private rooms: string[],
+    private onCreate: (o: NewAgentOpts) => void,
+    private onGenerateWithAI?: (description: string) => void,
+  ) { super(app); }
 
   onOpen() {
     const { contentEl } = this;
@@ -45,6 +50,23 @@ export class AddAgentModal extends Modal {
         this.close();
       }),
     );
+
+    if (this.onGenerateWithAI) {
+      contentEl.createEl("hr");
+      contentEl.createEl("h4", { text: "✨ Ou: descreva e deixe a IA criar" });
+      let desc = "";
+      new Setting(contentEl)
+        .setName("Descrição")
+        .setDesc("Ex: um designer que cria imagens minimalistas para Instagram, voz seca e direta.")
+        .addTextArea((t) => { t.setPlaceholder("Descreva o agente em linguagem natural…").onChange((v) => (desc = v)); t.inputEl.rows = 3; });
+      new Setting(contentEl).addButton((b) =>
+        b.setButtonText("✨ Gerar com IA").onClick(() => {
+          if (!desc.trim()) { new Notice("Descreva o agente primeiro."); return; }
+          this.onGenerateWithAI!(desc.trim());
+          this.close();
+        }),
+      );
+    }
   }
 
   onClose() { this.contentEl.empty(); }

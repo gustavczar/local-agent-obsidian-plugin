@@ -10,9 +10,10 @@ import { makeAdapter } from "./providers/ProviderAdapter";
 import { buildConversationNote } from "./chat/crystallize";
 import { SettingsTab } from "./settings/SettingsTab";
 import { AddAgentModal, NewAgentOpts } from "./office/AddAgentModal";
+import { ARCHITECT_SYSTEM, extractAgentNote, parseNameFromNote } from "./office/architectPrompt";
 import { buildCanvas } from "./canvas/buildCanvas";
 import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
-import { Agent } from "./types";
+import { Agent, ChatMessage } from "./types";
 
 export default class LocalAgentOfficePlugin extends Plugin {
   data!: PersistedData;
@@ -147,7 +148,47 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   private openAddAgent() {
     const rooms = [...new Set(this.registry.all().map((a) => a.room))].sort();
-    new AddAgentModal(this.app, rooms, (o) => void this.createAgent(o)).open();
+    new AddAgentModal(
+      this.app,
+      rooms,
+      (o) => void this.createAgent(o),
+      (desc) => void this.generateAgentWithAI(desc),
+    ).open();
+  }
+
+  // Epic B — "IA cria o agente": describe it, an architect generates the full persona note.
+  private async generateAgentWithAI(description: string) {
+    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return; }
+
+    const notice = new Notice("Arquiteto criando o agente…", 0);
+    const msgs: ChatMessage[] = [{ role: "user", content: description }];
+    let reply = "";
+    try {
+      for await (const t of makeAdapter(cfg).stream(msgs, { system: ARCHITECT_SYSTEM })) reply += t;
+    } catch (e) {
+      notice.hide();
+      new Notice(`⚠️ ${(e as Error).message}`);
+      return;
+    }
+    notice.hide();
+
+    const note = extractAgentNote(reply);
+    if (!note) { new Notice("A IA não retornou uma nota de agente válida — tente de novo."); return; }
+
+    const rawName = parseNameFromNote(note) || description.slice(0, 30);
+    const safe = rawName.replace(/[\\/:*?"<>|]/g, "-").trim() || "agente";
+    const folder = (this.data.agentsFolder ?? "").replace(/\/+$/, "").trim();
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    let path = (folder ? `${folder}/` : "") + `${safe}.md`;
+    if (this.app.vault.getAbstractFileByPath(path)) path = (folder ? `${folder}/` : "") + `${safe} ${Date.now()}.md`;
+
+    const file = await this.app.vault.create(path, note);
+    await this.registry.load();
+    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    new Notice(`Agente criado pela IA: ${safe}`);
   }
 
   private async createAgent(o: NewAgentOpts) {
@@ -184,14 +225,17 @@ export default class LocalAgentOfficePlugin extends Plugin {
         ]
       : [
           "",
-          `You are ${title} — [seu papel em uma linha]. [Propósito central em uma frase forte].`,
+          `You are ${title} — [seu papel em uma linha]. [Propósito central em uma frase forte: por que você existe].`,
           "",
           "## Personalidade",
-          "[Tom e estilo. O que você valoriza, como você fala, o que te diferencia.]",
+          "- **Voz:** [tom, ritmo, vocabulário característico de como você fala]",
+          "- **Valores:** [o que você defende; o que você despreza]",
+          "- **Vieses produtivos:** [as lentes que você sempre aplica]",
           "",
           "## Domínio",
           "- [área de expertise 1]",
           "- [área de expertise 2]",
+          "- [autores/referências que você cita como velhos amigos]",
           "",
           "## Quando invocado",
           "1. Enquadre o problema em uma frase antes de responder.",
@@ -202,7 +246,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
           "## Regras",
           "- [uma regra inegociável]",
           "- [um limite de estilo — o que você nunca faz]",
+          "- Se faltar informação para uma boa resposta, peça — não invente.",
           "- Cite sempre a nota/fonte real do cofre; nunca invente evidência.",
+          "",
+          "## Gatilhos de delegação",
+          "- Se a pergunta sair do seu domínio, sugira o agente certo: [[outro-agente]].",
           "",
           'Termine sempre com: "[sua frase de assinatura]."',
           "",
