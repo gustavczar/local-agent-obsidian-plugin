@@ -1,5 +1,5 @@
 import { Plugin, WorkspaceLeaf, Notice, TFile, Editor } from "obsidian";
-import { displayName, baseName } from "./office/avatar";
+import { displayName, baseName, roleText } from "./office/avatar";
 import { withDefaults, PersistedData } from "./store/PluginStore";
 import { AgentRegistry } from "./registry/AgentRegistry";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
@@ -104,20 +104,6 @@ export default class LocalAgentOfficePlugin extends Plugin {
     return reply;
   }
 
-  // Resolve an agent's connected agents (the delegation graph).
-  private connectedAgents(agent: Agent): Agent[] {
-    const all = this.registry.all();
-    const out: Agent[] = [];
-    for (const target of agent.connections) {
-      const t = target.trim().toLowerCase();
-      const found = all.find(
-        (a) => a.name.toLowerCase() === t || baseName(a.filePath).toLowerCase() === t || displayName(a).toLowerCase() === t,
-      );
-      if (found && found.name !== agent.name && !out.includes(found)) out.push(found);
-    }
-    return out;
-  }
-
   // Low-level single call to an agent (with its vault context + optional delegation directive).
   private async rawAgentCall(agent: Agent, message: string, delegates: string[]): Promise<string | null> {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
@@ -132,12 +118,13 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   // Epic D — run an agent; if it delegates to a connected peer, run that peer (one hop). Drives the office visuals.
   private async runWithDelegation(agent: Agent, message: string): Promise<{ text: string; via?: Agent } | null> {
-    const peers = this.connectedAgents(agent);
+    const peers = this.registry.all().filter((a) => a.name !== agent.name);
     const office = this.office;
     office?.setActivity(agent.name, "working");
     const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
 
-    const first = await this.rawAgentCall(agent, message, peers.map((p) => displayName(p)));
+    const roster = peers.map((p) => `${displayName(p)} — ${roleText(p) || p.room}`);
+    const first = await this.rawAgentCall(agent, message, roster);
     if (first == null) { notice.hide(); office?.setActivity(agent.name, "idle"); return null; }
 
     const m = first.match(/DELEGATE:\s*(.+)/i);

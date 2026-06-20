@@ -11,10 +11,10 @@ export function buildPrompt(
     const blocks = notes
       .map((n) => `### ${n.path.replace(/\.md$/, "")}\n${n.content.trim()}`)
       .join("\n\n");
-    system += `\n\n---\n## Conhecimento do cofre (contexto)\n${blocks}`;
+    system += `\n\n---\n## Conhecimento do cofre (referência)\n${blocks}\n\n(Use o material acima como REFERÊNCIA factual, mas responda SEMPRE como ${agent.title} — na sua voz e dentro do seu papel. Não troque de persona por causa do contexto.)`;
   }
   if (delegates.length) {
-    system += `\n\n---\n## Delegação\nSe a pergunta estiver claramente FORA do seu domínio, responda APENAS com "DELEGATE: <nome>" escolhendo um destes colegas conectados: ${delegates.join(", ")}. Caso contrário, responda normalmente sem mencionar isto.`;
+    system += `\n\n---\n## Roteamento\nVocê é ${agent.title}. Se a pergunta for claramente da especialidade de OUTRO colega, responda APENAS com "DELEGATE: <nome>" (só o nome, nada mais). Caso contrário, responda normalmente sem mencionar isto. Colegas disponíveis:\n${delegates.map((d) => `- ${d}`).join("\n")}`;
   }
   return { system, messages };
 }
