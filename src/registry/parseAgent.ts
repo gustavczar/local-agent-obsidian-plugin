@@ -1,6 +1,6 @@
 import { Agent } from "../types";
 
-const CONEXOES_RE = /\n#{1,6}\s*(?:🔗\s*)?Conex(?:ões|oes)[\s\S]*$/i;
+const CONEXOES_RE = /\n#{1,6}\s*(?:🔗\s*)?(?:Conex(?:ões|oes)|Connections)[\s\S]*$/i;
 const WIKILINK_RE = /\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g;
 
 function capitalize(s: string): string {
@@ -32,5 +32,9 @@ export function parseAgent(
 
   const systemPrompt = body.replace(CONEXOES_RE, "").trim();
 
-  return { name, title, systemPrompt, room, connections: [...new Set(connections)], filePath };
+  const icon = frontmatter.icon != null ? String(frontmatter.icon).trim() : undefined;
+  const accentRaw = frontmatter.accent ?? frontmatter.color;
+  const accent = accentRaw != null ? String(accentRaw).trim() : undefined;
+
+  return { name, title, systemPrompt, room, connections: [...new Set(connections)], filePath, icon, accent };
 }

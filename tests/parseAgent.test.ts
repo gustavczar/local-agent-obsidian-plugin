@@ -37,4 +37,20 @@ describe("parseAgent", () => {
     expect(a.room).toBe("Geral");
     expect(a.title).toBe("ghost");
   });
+
+  it("reads optional icon and accent (color) for avatar personalization", () => {
+    const a = parseAgent(
+      { name: "nexo", tags: ["#agente/estrategia"], icon: "🧠", color: "#a78bfa" },
+      "You are Nexo.",
+      "nexo.md",
+    );
+    expect(a.icon).toBe("🧠");
+    expect(a.accent).toBe("#a78bfa");
+  });
+
+  it("leaves icon/accent undefined when absent", () => {
+    const a = parseAgent({ name: "nexo", tags: ["#agente/estrategia"] }, "x", "n.md");
+    expect(a.icon).toBeUndefined();
+    expect(a.accent).toBeUndefined();
+  });
 });

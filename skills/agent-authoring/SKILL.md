@@ -21,7 +21,9 @@ From a valid agent note the plugin reads:
 | Field | Source | Notes |
 |---|---|---|
 | **name** | frontmatter `name` | Unique id. Falls back to the file path if missing — always set it. |
-| **title** | frontmatter `title` | Display name in the office/chat. Falls back to `name`. |
+| **title** | frontmatter `title` | Display name in the office/chat. A `Name — Role` title is split: "Name" is the card heading, "Role" the subtitle. Falls back to `name`. |
+| **icon** (optional) | frontmatter `icon` | An emoji/glyph for the agent's avatar. Defaults to the first emoji in the title, else a monogram of the name. |
+| **accent** (optional) | frontmatter `color` or `accent` | Any CSS color for the avatar/highlight. Defaults to a stable color derived from the name. |
 | **room** | first `#agente/<category>` tag | The office groups agents into rooms by category. No `#agente/*` tag → room `Geral`. The label is shown capitalized (`#agente/strategy` → room **Strategy**). |
 | **system prompt** | the note **body** | Everything after the frontmatter, **minus** the `## Connections` section. |
 | **connections** | `[[wikilinks]]` in the body | Drawn as lines in the office; their note contents are auto-loaded as context when you chat. |
@@ -34,6 +36,8 @@ From a valid agent note the plugin reads:
 ---
 name: sage
 title: Sage — The Questioner
+icon: "🦉"          # optional — avatar glyph
+color: "#7c9cff"   # optional — avatar accent
 tags:
   - "#agente/strategy"
   - "#sistema/sub-agente"

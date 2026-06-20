@@ -5,6 +5,8 @@ export interface Agent {
   room: string;          // derived from #agente/<categoria> tag (fallback "Geral")
   connections: string[]; // wikilink targets found in the body
   filePath: string;
+  icon?: string;         // optional frontmatter `icon` (emoji/glyph) for the avatar
+  accent?: string;       // optional frontmatter `color`/`accent` (any CSS color) for the avatar
 }
 
 export interface ChatMessage {
