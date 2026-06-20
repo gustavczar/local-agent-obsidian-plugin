@@ -10,6 +10,8 @@ import { makeAdapter } from "./providers/ProviderAdapter";
 import { buildConversationNote } from "./chat/crystallize";
 import { SettingsTab } from "./settings/SettingsTab";
 import { AddAgentModal, NewAgentOpts } from "./office/AddAgentModal";
+import { buildCanvas } from "./canvas/buildCanvas";
+import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
 import { Agent } from "./types";
 
 export default class LocalAgentOfficePlugin extends Plugin {
@@ -47,6 +49,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
       name: "Responder @menção na linha atual",
       editorCallback: (editor) => void this.answerInlineMention(editor),
     });
+    this.addCommand({
+      id: "generate-canvas-mention",
+      name: "Gerar Canvas da @menção na linha atual",
+      editorCallback: (editor) => void this.generateCanvasFromMention(editor),
+    });
     this.addSettingTab(new SettingsTab(this.app, this));
 
     await this.registry.load();
@@ -66,39 +73,76 @@ export default class LocalAgentOfficePlugin extends Plugin {
     await leaf.setViewState({ type: OFFICE_VIEW, active: true });
   }
 
-  // Build #2 — @agent in notes: answer the "@Agent: question" on the cursor line, inline.
-  private async answerInlineMention(editor: Editor) {
-    const lineIdx = editor.getCursor().line;
-    const line = editor.getLine(lineIdx);
+  // Parse "@Agent: rest" on a line and resolve the agent.
+  private parseMentionLine(line: string): { agent: Agent; rest: string } | null {
     const m = line.match(/@([^:：]+?)\s*[:：]\s*(.+)$/);
-    if (!m) { new Notice("Formato: @Agente: sua pergunta — na linha do cursor."); return; }
-
+    if (!m) return null;
     const token = m[1].trim().toLowerCase();
-    const question = m[2].trim();
     const agent = this.registry.all().find(
       (a) => a.name.toLowerCase() === token || displayName(a).toLowerCase() === token,
     );
-    if (!agent) { new Notice(`Agente "@${m[1].trim()}" não encontrado.`); return; }
+    if (!agent) { new Notice(`Agente "@${m[1].trim()}" não encontrado.`); return null; }
+    return { agent, rest: m[2].trim() };
+  }
 
+  // Run an agent once and return its full reply (or null on error/no provider).
+  private async runAgentReply(agent: Agent, message: string): Promise<string | null> {
     let session: ChatSession;
-    try { session = this.makeSession(agent); } catch { return; }
-
+    try { session = this.makeSession(agent); } catch { return null; }
     const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
     let reply = "";
     const off = session.onToken((t) => { reply += t; });
-    try {
-      await session.send(question, []);
-    } catch (e) {
-      off(); notice.hide();
-      new Notice(`⚠️ ${(e as Error).message}`);
-      return;
-    }
+    try { await session.send(message, []); }
+    catch (e) { off(); notice.hide(); new Notice(`⚠️ ${(e as Error).message}`); return null; }
     off(); notice.hide();
+    return reply;
+  }
+
+  // Build #2 — @agent in notes: answer the "@Agent: question" on the cursor line, inline.
+  private async answerInlineMention(editor: Editor) {
+    const lineIdx = editor.getCursor().line;
+    const parsed = this.parseMentionLine(editor.getLine(lineIdx));
+    if (!parsed) { new Notice("Formato: @Agente: sua pergunta — na linha do cursor."); return; }
+
+    const reply = await this.runAgentReply(parsed.agent, parsed.rest);
+    if (reply == null) return;
 
     const quoted = (reply.trim() || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
-    const block = `\n\n> [!agent]+ ${agent.title}\n${quoted}\n`;
+    const block = `\n\n> [!agent]+ ${parsed.agent.title}\n${quoted}\n`;
     editor.replaceRange(block, { line: lineIdx, ch: editor.getLine(lineIdx).length });
-    new Notice(`${displayName(agent)} respondeu.`);
+    new Notice(`${displayName(parsed.agent)} respondeu.`);
+  }
+
+  // Epic A — agent → native Canvas: turn "@Agent: topic" into a .canvas mind map.
+  private async generateCanvasFromMention(editor: Editor) {
+    const lineIdx = editor.getCursor().line;
+    const parsed = this.parseMentionLine(editor.getLine(lineIdx));
+    if (!parsed) { new Notice("Formato: @Agente: tópico do mapa."); return; }
+
+    const prompt = [
+      `Crie um mapa visual (mind map) sobre: "${parsed.rest}".`,
+      "Responda APENAS com um JSON válido, sem nenhum texto fora dele, no formato:",
+      '{"nodes":[{"id":"1","text":"..."}],"edges":[{"from":"1","to":"2","label":"..."}]}',
+      "Use de 5 a 9 nós curtos e bem conectados.",
+    ].join(" ");
+
+    const reply = await this.runAgentReply(parsed.agent, prompt);
+    if (reply == null) return;
+
+    const spec = parseCanvasSpec(reply);
+    if (!spec) { new Notice("O agente não retornou um mapa válido — tente novamente."); return; }
+
+    const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    const safe = (parsed.rest.slice(0, 40).replace(/[\\/:*?"<>|]/g, "-").trim()) || "mapa";
+    let path = (folder ? `${folder}/` : "") + `${safe} (canvas).canvas`;
+    if (this.app.vault.getAbstractFileByPath(path)) path = (folder ? `${folder}/` : "") + `${safe} ${Date.now()}.canvas`;
+
+    const file = await this.app.vault.create(path, buildCanvas(spec));
+    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    new Notice(`Canvas gerado por ${displayName(parsed.agent)}.`);
   }
 
   private openAddAgent() {
