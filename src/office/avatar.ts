@@ -2,6 +2,10 @@ import { Agent } from "../types";
 
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
+export function baseName(filePath: string): string {
+  return (filePath.split("/").pop() ?? filePath).replace(/\.md$/i, "");
+}
+
 export function hashHue(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;

@@ -1,5 +1,5 @@
 import { Plugin, WorkspaceLeaf, Notice, TFile, Editor } from "obsidian";
-import { displayName } from "./office/avatar";
+import { displayName, baseName } from "./office/avatar";
 import { withDefaults, PersistedData } from "./store/PluginStore";
 import { AgentRegistry } from "./registry/AgentRegistry";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
@@ -10,6 +10,8 @@ import { makeAdapter } from "./providers/ProviderAdapter";
 import { buildConversationNote } from "./chat/crystallize";
 import { SettingsTab } from "./settings/SettingsTab";
 import { AddAgentModal, NewAgentOpts } from "./office/AddAgentModal";
+import { ConnectModal, ConnectItem } from "./office/ConnectModal";
+import { addConnectionToBody } from "./office/addConnection";
 import { ARCHITECT_SYSTEM, extractAgentNote, parseNameFromNote } from "./office/architectPrompt";
 import { buildCanvas } from "./canvas/buildCanvas";
 import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
@@ -31,6 +33,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         (name, pos) => { this.data.positions[name] = pos; void this.persist(); },
         (name) => this.openChatFor(name),
         () => this.openAddAgent(),
+        (name) => this.connectAgent(name),
       );
       return this.office;
     });
@@ -145,6 +148,30 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const file = await this.app.vault.create(path, buildCanvas(spec));
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
     new Notice(`Canvas gerado por ${displayName(parsed.agent)}.`);
+  }
+
+  // Epic D / Obsidian-native: generate a [[link]] from one agent to another agent or note.
+  private connectAgent(sourceName: string) {
+    const source = this.registry.get(sourceName);
+    if (!source) return;
+
+    const items: ConnectItem[] = [];
+    for (const a of this.registry.all()) {
+      if (a.name === sourceName) continue;
+      items.push({ label: displayName(a), sublabel: "agente", linktext: baseName(a.filePath) });
+    }
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (items.some((i) => i.linktext === f.basename)) continue;
+      items.push({ label: f.basename, sublabel: "nota", linktext: f.basename });
+    }
+
+    new ConnectModal(this.app, items, async (it) => {
+      const file = this.app.vault.getAbstractFileByPath(source.filePath);
+      if (!(file instanceof TFile)) return;
+      await this.app.vault.process(file, (data) => addConnectionToBody(data, it.linktext));
+      await this.registry.load();
+      new Notice(`${displayName(source)} → [[${it.linktext}]]`);
+    }).open();
   }
 
   private openAddAgent() {

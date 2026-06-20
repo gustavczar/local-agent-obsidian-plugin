@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { AgentRegistry } from "../registry/AgentRegistry";
 import { Agent } from "../types";
 import { Pos } from "./layout";
-import { accentOf, avatarGlyph, displayName, roleText } from "./avatar";
+import { accentOf, avatarGlyph, baseName, displayName, roleText } from "./avatar";
 
 export const OFFICE_VIEW = "lao-office-view";
 
@@ -11,6 +11,7 @@ export class OfficeView extends ItemView {
   private filter = "";
   private showAllConn = false;
   private cardEls = new Map<string, HTMLElement>();
+  private targetIndex = new Map<string, string>(); // name/basename/displayName → agent.name
   private floorEl!: HTMLElement;
   private overlay!: SVGSVGElement;
 
@@ -21,6 +22,7 @@ export class OfficeView extends ItemView {
     private _savePosition: (name: string, pos: Pos) => void,
     private openChat: (agentName: string) => void,
     private onAddAgent: () => void,
+    private onConnect: (agentName: string) => void,
   ) {
     super(leaf);
     this.registry.onChange(() => this.render());
@@ -96,9 +98,20 @@ export class OfficeView extends ItemView {
     this.renderCards(host, agents);
   }
 
+  private resolveAgentName(target: string): string | undefined {
+    return this.targetIndex.get(target.trim().toLowerCase());
+  }
+
   private renderCards(host: HTMLElement, agents: Agent[]) {
     this.floorEl = host.createDiv({ cls: "lao-floor" });
     this.overlay = this.floorEl.createSvg("svg", { cls: "lao-conn-overlay" });
+
+    this.targetIndex.clear();
+    for (const a of agents) {
+      this.targetIndex.set(a.name.toLowerCase(), a.name);
+      this.targetIndex.set(baseName(a.filePath).toLowerCase(), a.name);
+      this.targetIndex.set(displayName(a).toLowerCase(), a.name);
+    }
 
     const byRoom = new Map<string, Agent[]>();
     for (const a of agents) {
@@ -140,6 +153,10 @@ export class OfficeView extends ItemView {
 
     const status = card.createDiv({ cls: "lao-status" });
     if (this.workingAgents.has(a.name)) status.addClass("working");
+
+    const actions = card.createDiv({ cls: "lao-card-actions" });
+    const connectBtn = actions.createEl("button", { cls: "lao-card-act", text: "🔗", attr: { title: "Conectar a outro agente ou nota" } });
+    connectBtn.addEventListener("click", (e) => { e.stopPropagation(); this.onConnect(a.name); });
 
     card.addEventListener("click", () => this.openChat(a.name));
     card.addEventListener("mouseenter", () => { if (!this.showAllConn) this.highlightConnections(a); });
@@ -195,13 +212,14 @@ export class OfficeView extends ItemView {
     const fc = this.center(from);
     const linked = new Set<string>([agent.name]);
     for (const target of agent.connections) {
-      const card = this.cardEls.get(target);
-      if (!card) continue;
-      linked.add(target);
+      const tname = this.resolveAgentName(target);
+      const card = tname ? this.cardEls.get(tname) : undefined;
+      if (!card || !tname) continue;
+      linked.add(tname);
       this.line(fc, this.center(card), "lao-link active");
     }
     for (const other of this.registry.all()) {
-      if (other.connections.includes(agent.name)) {
+      if (other.connections.some((t) => this.resolveAgentName(t) === agent.name)) {
         const card = this.cardEls.get(other.name);
         if (!card || linked.has(other.name)) continue;
         linked.add(other.name);
@@ -224,7 +242,8 @@ export class OfficeView extends ItemView {
       if (!from) continue;
       const fc = this.center(from);
       for (const target of a.connections) {
-        const card = this.cardEls.get(target);
+        const tname = this.resolveAgentName(target);
+        const card = tname ? this.cardEls.get(tname) : undefined;
         if (!card) continue;
         this.line(fc, this.center(card), "lao-link faint");
       }
