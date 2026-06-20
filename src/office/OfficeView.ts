@@ -11,7 +11,7 @@ export class OfficeView extends ItemView {
   private workingAgents = new Set<string>();
   private filter = "";
   private showAllConn = false;
-  private mode: "map" | "cards" = "map";
+  private mode: "map" | "cards" = "cards";
   private liveMap: LiveMap | null = null;
   private cardEls = new Map<string, HTMLElement>();
   private floorEl!: HTMLElement;
@@ -23,6 +23,7 @@ export class OfficeView extends ItemView {
     private _getPositions: () => Record<string, Pos>,
     private _savePosition: (name: string, pos: Pos) => void,
     private openChat: (agentName: string) => void,
+    private onAddAgent: () => void,
   ) {
     super(leaf);
     this.registry.onChange(() => this.render());
@@ -92,6 +93,9 @@ export class OfficeView extends ItemView {
       });
     }
 
+    const addBtn = bar.createEl("button", { cls: "lao-add-btn mod-cta", text: "+ Agente" });
+    addBtn.addEventListener("click", () => this.onAddAgent());
+
     const gear = bar.createEl("button", { cls: "lao-gear-btn", attr: { "aria-label": "Configurações" } });
     gear.setText("⚙");
     gear.addEventListener("click", () => this.openSettings());
@@ -99,8 +103,10 @@ export class OfficeView extends ItemView {
     // Empty state
     if (!agents.length) {
       const empty = host.createDiv({ cls: "lao-empty" });
-      empty.createEl("h3", { text: "Nenhum agente encontrado" });
-      empty.createEl("p", { text: "Crie uma nota com frontmatter `name` + tag `#sistema/sub-agente` ou `#agente/<categoria>` dentro da pasta de agentes (⚙ Configurações)." });
+      empty.createEl("h3", { text: "Nenhum agente ainda" });
+      empty.createEl("p", { text: "Clique em “+ Agente” para criar o primeiro, ou coloque uma nota .md na sua pasta de agentes (⚙ Configurações). Toda nota na pasta vira um agente." });
+      const cta = empty.createEl("button", { cls: "mod-cta", text: "+ Criar agente" });
+      cta.addEventListener("click", () => this.onAddAgent());
       return;
     }
 

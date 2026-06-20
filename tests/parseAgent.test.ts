@@ -53,4 +53,12 @@ describe("parseAgent", () => {
     expect(a.icon).toBeUndefined();
     expect(a.accent).toBeUndefined();
   });
+
+  it("falls back to the file basename (not the full path) when name is missing", () => {
+    const a = parseAgent({}, "You are a plain note agent.", "06. Sistema/SUB-AGENTS/Minha Nota.md");
+    expect(a.name).toBe("Minha Nota");
+    expect(a.title).toBe("Minha Nota");
+    expect(a.room).toBe("Geral");
+    expect(a.systemPrompt).toBe("You are a plain note agent.");
+  });
 });

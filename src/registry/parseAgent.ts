@@ -16,12 +16,16 @@ function deriveRoom(tags: unknown): string {
   return "Geral";
 }
 
+function baseName(filePath: string): string {
+  return (filePath.split("/").pop() ?? filePath).replace(/\.md$/i, "");
+}
+
 export function parseAgent(
   frontmatter: Record<string, any>,
   body: string,
   filePath: string,
 ): Agent {
-  const name = String(frontmatter.name ?? "").trim() || filePath;
+  const name = String(frontmatter.name ?? "").trim() || baseName(filePath);
   const title = String(frontmatter.title ?? "").trim() || name;
   const room = deriveRoom(frontmatter.tags);
 

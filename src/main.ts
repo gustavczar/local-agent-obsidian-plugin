@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, Notice } from "obsidian";
+import { Plugin, WorkspaceLeaf, Notice, TFile } from "obsidian";
 import { withDefaults, PersistedData } from "./store/PluginStore";
 import { AgentRegistry } from "./registry/AgentRegistry";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
@@ -8,6 +8,7 @@ import { resolveNotes } from "./context/resolveNotes";
 import { makeAdapter } from "./providers/ProviderAdapter";
 import { buildConversationNote } from "./chat/crystallize";
 import { SettingsTab } from "./settings/SettingsTab";
+import { AddAgentModal, NewAgentOpts } from "./office/AddAgentModal";
 import { Agent } from "./types";
 
 export default class LocalAgentOfficePlugin extends Plugin {
@@ -25,6 +26,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         () => this.data.positions,
         (name, pos) => { this.data.positions[name] = pos; void this.persist(); },
         (name) => this.openChatFor(name),
+        () => this.openAddAgent(),
       );
       return this.office;
     });
@@ -56,6 +58,53 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private async openOffice() {
     const leaf = this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: OFFICE_VIEW, active: true });
+  }
+
+  private openAddAgent() {
+    const rooms = [...new Set(this.registry.all().map((a) => a.room))].sort();
+    new AddAgentModal(this.app, rooms, (o) => void this.createAgent(o)).open();
+  }
+
+  private async createAgent(o: NewAgentOpts) {
+    const folder = (this.data.agentsFolder ?? "").replace(/\/+$/, "").trim();
+    const safe = o.name.trim().replace(/[\\/:*?"<>|]/g, "-");
+    if (!safe) { new Notice("Nome inválido."); return; }
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    const path = folder ? `${folder}/${safe}.md` : `${safe}.md`;
+    if (this.app.vault.getAbstractFileByPath(path)) { new Notice("Já existe um agente com esse nome."); return; }
+
+    const roomSlug = (o.room || "geral").trim().toLowerCase().replace(/\s+/g, "-") || "geral";
+    const title = o.title.trim() || safe;
+    const fm = [
+      "---",
+      `name: ${safe}`,
+      `title: ${title}`,
+      ...(o.icon.trim() ? [`icon: "${o.icon.trim()}"`] : []),
+      ...(o.color.trim() ? [`color: "${o.color.trim()}"`] : []),
+      "tags:",
+      `  - "#agente/${roomSlug}"`,
+      `  - "#sistema/sub-agente"`,
+      "---",
+    ];
+    const body = [
+      "",
+      `You are ${title}. [descreva o propósito do agente em uma frase].`,
+      "",
+      "When invoked:",
+      "1. [primeira ação]",
+      "2. [método central]",
+      "3. [formato da entrega]",
+      "",
+      "## Conexões",
+      "- ",
+      "",
+    ];
+    const file = await this.app.vault.create(path, fm.concat(body).join("\n"));
+    await this.registry.load();
+    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    new Notice(`Agente criado: ${safe}`);
   }
 
   private async openChatFor(agentName: string) {
