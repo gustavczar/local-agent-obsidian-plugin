@@ -24,6 +24,18 @@ export function providerErrorBody(res: { json?: any; text?: string }): string {
   return String(m).slice(0, 300);
 }
 
+export const PROVIDER_TIMEOUT_MS = 90000;
+
+/** Rejects if the promise does not settle within `ms` — guards against a provider that hangs forever. */
+export async function withTimeout<T>(p: Promise<T>, ms = PROVIDER_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Tempo esgotado (${Math.round(ms / 1000)}s) — o provider não respondeu.`)), ms);
+  });
+  try { return await Promise.race([p, timeout]); }
+  finally { clearTimeout(timer!); }
+}
+
 export function makeAdapter(cfg: ProviderConfig): ProviderAdapter {
   return cfg.kind === "anthropic" ? new AnthropicAdapter(cfg) : new OpenAICompatibleAdapter(cfg);
 }

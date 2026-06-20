@@ -1,6 +1,6 @@
 import { requestUrl } from "obsidian";
 import { ChatMessage, ProviderConfig } from "../types";
-import { ProviderAdapter, StreamOpts, providerErrorBody } from "./ProviderAdapter";
+import { ProviderAdapter, StreamOpts, providerErrorBody, withTimeout } from "./ProviderAdapter";
 
 export class OpenAICompatibleAdapter implements ProviderAdapter {
   constructor(private cfg: ProviderConfig) {}
@@ -10,7 +10,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     if (!this.cfg.baseURL) throw new Error("Base URL não configurada para este provider.");
     if (!this.cfg.model) throw new Error("Modelo não configurado para este provider.");
     const url = `${this.cfg.baseURL.replace(/\/+$/, "")}/chat/completions`;
-    const res = await requestUrl({
+    const res = await withTimeout(requestUrl({
       url,
       method: "POST",
       headers: {
@@ -22,7 +22,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
         messages: [{ role: "system", content: opts.system }, ...messages],
       }),
       throw: false,
-    });
+    }));
 
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`Provider ${res.status}: ${providerErrorBody(res)}`);
