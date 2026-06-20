@@ -1,9 +1,10 @@
 import { App, Modal, Setting, Notice } from "obsidian";
 
-export interface NewAgentOpts { name: string; title: string; room: string; icon: string; color: string; }
+export type AgentTemplate = "elite" | "min";
+export interface NewAgentOpts { name: string; title: string; room: string; icon: string; color: string; template: AgentTemplate; }
 
 export class AddAgentModal extends Modal {
-  private opts: NewAgentOpts = { name: "", title: "", room: "", icon: "", color: "" };
+  private opts: NewAgentOpts = { name: "", title: "", room: "", icon: "", color: "", template: "elite" };
 
   constructor(app: App, private rooms: string[], private onCreate: (o: NewAgentOpts) => void) { super(app); }
 
@@ -29,6 +30,13 @@ export class AddAgentModal extends Modal {
 
     new Setting(contentEl).setName("Cor").setDesc("Cor do avatar, ex: #a78bfa (opcional).")
       .addText((t) => t.setPlaceholder("#a78bfa").onChange((v) => (this.opts.color = v)));
+
+    new Setting(contentEl).setName("Método").setDesc("Estrutura sugerida do agente (você edita livremente depois).")
+      .addDropdown((d) => d
+        .addOption("elite", "Método Elite (sugerido)")
+        .addOption("min", "Mínimo (em branco)")
+        .setValue(this.opts.template)
+        .onChange((v) => (this.opts.template = v as AgentTemplate)));
 
     new Setting(contentEl).addButton((b) =>
       b.setButtonText("Criar agente").setCta().onClick(() => {

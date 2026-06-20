@@ -3,7 +3,6 @@ import { AgentRegistry } from "../registry/AgentRegistry";
 import { Agent } from "../types";
 import { Pos } from "./layout";
 import { accentOf, avatarGlyph, displayName, roleText } from "./avatar";
-import { LiveMap } from "./LiveMap";
 
 export const OFFICE_VIEW = "lao-office-view";
 
@@ -11,8 +10,6 @@ export class OfficeView extends ItemView {
   private workingAgents = new Set<string>();
   private filter = "";
   private showAllConn = false;
-  private mode: "map" | "cards" = "cards";
-  private liveMap: LiveMap | null = null;
   private cardEls = new Map<string, HTMLElement>();
   private floorEl!: HTMLElement;
   private overlay!: SVGSVGElement;
@@ -34,11 +31,9 @@ export class OfficeView extends ItemView {
   getIcon() { return "building-2"; }
 
   async onOpen() { this.render(); }
-  async onClose() { this.liveMap?.destroy(); this.liveMap = null; }
 
   setWorking(agentName: string, working: boolean) {
     if (working) this.workingAgents.add(agentName); else this.workingAgents.delete(agentName);
-    this.liveMap?.setWorking(agentName, working);
     const card = this.cardEls.get(agentName);
     if (card) card.toggleClass("working", working);
     const dot = card?.querySelector(".lao-status");
@@ -53,8 +48,6 @@ export class OfficeView extends ItemView {
 
   private render() {
     const host = this.contentEl;
-    this.liveMap?.destroy();
-    this.liveMap = null;
     host.empty();
     host.addClass("lao-office-root");
     this.cardEls.clear();
@@ -67,31 +60,21 @@ export class OfficeView extends ItemView {
     const rooms = new Set(agents.map((a) => a.room));
     bar.createSpan({ cls: "lao-count", text: `${agents.length} agentes · ${rooms.size} salas` });
 
-    const modeWrap = bar.createDiv({ cls: "lao-mode" });
-    const mkMode = (id: "map" | "cards", label: string) => {
-      const b = modeWrap.createEl("button", { cls: "lao-mode-btn", text: label });
-      b.toggleClass("active", this.mode === id);
-      b.addEventListener("click", () => { if (this.mode !== id) { this.mode = id; this.render(); } });
-    };
-    mkMode("map", "Mapa");
-    mkMode("cards", "Cards");
-
     const spacer = bar.createDiv({ cls: "lao-spacer" });
     spacer.style.flex = "1";
 
-    if (this.mode === "cards") {
-      const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: "Filtrar agentes…" } });
-      search.value = this.filter;
-      search.addEventListener("input", () => { this.filter = search.value.toLowerCase(); this.applyFilter(); });
-      const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: "Conexões" });
+    const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: "Filtrar agentes…" } });
+    search.value = this.filter;
+    search.addEventListener("input", () => { this.filter = search.value.toLowerCase(); this.applyFilter(); });
+
+    const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: "Conexões" });
+    connBtn.toggleClass("active", this.showAllConn);
+    connBtn.addEventListener("click", () => {
+      this.showAllConn = !this.showAllConn;
       connBtn.toggleClass("active", this.showAllConn);
-      connBtn.addEventListener("click", () => {
-        this.showAllConn = !this.showAllConn;
-        connBtn.toggleClass("active", this.showAllConn);
-        this.clearOverlay();
-        if (this.showAllConn) this.drawAllConnections();
-      });
-    }
+      this.clearOverlay();
+      if (this.showAllConn) this.drawAllConnections();
+    });
 
     const addBtn = bar.createEl("button", { cls: "lao-add-btn mod-cta", text: "+ Agente" });
     addBtn.addEventListener("click", () => this.onAddAgent());
@@ -110,19 +93,8 @@ export class OfficeView extends ItemView {
       return;
     }
 
-    if (this.mode === "map") { this.renderMap(host, agents); return; }
     this.renderCards(host, agents);
   }
-
-  // ---- Map mode (living office) ----
-
-  private renderMap(host: HTMLElement, agents: Agent[]) {
-    const wrap = host.createDiv({ cls: "lao-map-wrap" });
-    this.liveMap = new LiveMap(wrap, agents, this.workingAgents, (name) => this.openChat(name));
-    this.liveMap.mount();
-  }
-
-  // ---- Cards mode ----
 
   private renderCards(host: HTMLElement, agents: Agent[]) {
     this.floorEl = host.createDiv({ cls: "lao-floor" });
@@ -190,7 +162,7 @@ export class OfficeView extends ItemView {
     }
   }
 
-  // ---- connection overlay (cards mode) ----
+  // ---- connection overlay ----
 
   private center(el: HTMLElement): { x: number; y: number } {
     const fr = this.floorEl.getBoundingClientRect();

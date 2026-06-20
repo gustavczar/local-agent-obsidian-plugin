@@ -88,19 +88,44 @@ export default class LocalAgentOfficePlugin extends Plugin {
       `  - "#sistema/sub-agente"`,
       "---",
     ];
-    const body = [
-      "",
-      `You are ${title}. [descreva o propósito do agente em uma frase].`,
-      "",
-      "When invoked:",
-      "1. [primeira ação]",
-      "2. [método central]",
-      "3. [formato da entrega]",
-      "",
-      "## Conexões",
-      "- ",
-      "",
-    ];
+    const body = o.template === "min"
+      ? [
+          "",
+          `You are ${title}. [descreva o propósito do agente em uma frase].`,
+          "",
+          "## Conexões",
+          "- ",
+          "",
+        ]
+      : [
+          "",
+          `You are ${title} — [seu papel em uma linha]. [Propósito central em uma frase forte].`,
+          "",
+          "## Personalidade",
+          "[Tom e estilo. O que você valoriza, como você fala, o que te diferencia.]",
+          "",
+          "## Domínio",
+          "- [área de expertise 1]",
+          "- [área de expertise 2]",
+          "",
+          "## Quando invocado",
+          "1. Enquadre o problema em uma frase antes de responder.",
+          "2. [método central — como você ataca o problema]",
+          "3. [análise / processamento]",
+          "4. [formato da entrega: o que você devolve e como]",
+          "",
+          "## Regras",
+          "- [uma regra inegociável]",
+          "- [um limite de estilo — o que você nunca faz]",
+          "- Cite sempre a nota/fonte real do cofre; nunca invente evidência.",
+          "",
+          'Termine sempre com: "[sua frase de assinatura]."',
+          "",
+          "## Conexões",
+          "- [[MOC ou nota do domínio]]",
+          "- ",
+          "",
+        ];
     const file = await this.app.vault.create(path, fm.concat(body).join("\n"));
     await this.registry.load();
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
