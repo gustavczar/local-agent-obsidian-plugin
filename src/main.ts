@@ -79,16 +79,36 @@ export default class LocalAgentOfficePlugin extends Plugin {
     await leaf.setViewState({ type: OFFICE_VIEW, active: true });
   }
 
-  // Parse "@Agent: rest" on a line and resolve the agent.
+  // Parse "@Agent: rest" on a line and resolve the agent (silent — returns null if not found).
   private parseMentionLine(line: string): { agent: Agent; rest: string } | null {
     const m = line.match(/@([^:：]+?)\s*[:：]\s*(.+)$/);
     if (!m) return null;
     const token = m[1].trim().toLowerCase();
     const agent = this.registry.all().find(
-      (a) => a.name.toLowerCase() === token || displayName(a).toLowerCase() === token,
+      (a) => a.name.toLowerCase() === token || baseName(a.filePath).toLowerCase() === token || displayName(a).toLowerCase() === token,
     );
-    if (!agent) { new Notice(`Agente "@${m[1].trim()}" não encontrado.`); return null; }
-    return { agent, rest: m[2].trim() };
+    return agent ? { agent, rest: m[2].trim() } : null;
+  }
+
+  // Find the @mention nearest the cursor (cursor line first, then closest line in the note).
+  private findMention(editor: Editor): { lineIdx: number; agent: Agent; rest: string } | null {
+    const cur = editor.getCursor().line;
+    const onCur = this.parseMentionLine(editor.getLine(cur));
+    if (onCur) return { lineIdx: cur, ...onCur };
+    let best: { lineIdx: number; agent: Agent; rest: string } | null = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < editor.lineCount(); i++) {
+      const p = this.parseMentionLine(editor.getLine(i));
+      if (!p) continue;
+      const d = Math.abs(i - cur);
+      if (d < bestDist) { bestDist = d; best = { lineIdx: i, ...p }; }
+    }
+    return best;
+  }
+
+  private mentionHelp(): string {
+    const names = this.registry.all().map((a) => displayName(a)).slice(0, 10).join(", ");
+    return `Escreva "@Agente: sua pergunta" na nota. Agentes: ${names || "(nenhum — crie em + Agente)"}.`;
   }
 
   // Run an agent once and return its full reply (or null on error/no provider).
@@ -116,16 +136,20 @@ export default class LocalAgentOfficePlugin extends Plugin {
     return reply;
   }
 
-  // Epic D — run an agent; if it delegates to a connected peer, run that peer (one hop). Drives the office visuals.
-  private async runWithDelegation(agent: Agent, message: string): Promise<{ text: string; via?: Agent } | null> {
+  // Epic D — run an agent; if it delegates to a peer, run that peer (one hop). onStage reports progress; office visuals too.
+  private async runWithDelegation(
+    agent: Agent,
+    message: string,
+    onStage?: (label: string) => void,
+  ): Promise<{ text: string; via?: Agent } | null> {
     const peers = this.registry.all().filter((a) => a.name !== agent.name);
     const office = this.office;
     office?.setActivity(agent.name, "working");
-    const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
+    onStage?.(`⏳ ${displayName(agent)} pensando…`);
 
     const roster = peers.map((p) => `${displayName(p)} — ${roleText(p) || p.room}`);
     const first = await this.rawAgentCall(agent, message, roster);
-    if (first == null) { notice.hide(); office?.setActivity(agent.name, "idle"); return null; }
+    if (first == null) { office?.setActivity(agent.name, "idle"); return null; }
 
     const m = first.match(/DELEGATE:\s*(.+)/i);
     if (m) {
@@ -136,9 +160,8 @@ export default class LocalAgentOfficePlugin extends Plugin {
         office?.setActivity(agent.name, "waiting");
         office?.setActivity(peer.name, "working");
         office?.flashDelegation(agent.name, peer.name);
-        notice.setMessage(`${displayName(agent)} consultou ${displayName(peer)}…`);
+        onStage?.(`🤝 ${displayName(agent)} consultando ${displayName(peer)}…`);
         const second = await this.rawAgentCall(peer, message, []);
-        notice.hide();
         office?.setActivity(agent.name, "idle");
         office?.setActivity(peer.name, "idle");
         if (second == null) return null;
@@ -146,34 +169,40 @@ export default class LocalAgentOfficePlugin extends Plugin {
       }
     }
 
-    notice.hide();
     office?.setActivity(agent.name, "idle");
     return { text: first.trim() };
   }
 
-  // @agent in notes: answer the "@Agent: question" on the cursor line, inline (with delegation).
+  // @agent in notes: insert a live status block under the nearest @mention and fill it with the answer.
   private async answerInlineMention(editor: Editor) {
-    const lineIdx = editor.getCursor().line;
-    const parsed = this.parseMentionLine(editor.getLine(lineIdx));
-    if (!parsed) { new Notice("Formato: @Agente: sua pergunta — na linha do cursor."); return; }
+    const found = this.findMention(editor);
+    if (!found) { new Notice(this.mentionHelp()); return; }
+    const { lineIdx, agent, rest } = found;
 
-    const result = await this.runWithDelegation(parsed.agent, parsed.rest);
-    if (!result) return;
+    const startOff = editor.posToOffset({ line: lineIdx, ch: editor.getLine(lineIdx).length });
+    let curLen = 0;
+    const write = (body: string) => {
+      const block = `\n\n> [!agent]+ ${agent.title}\n${body}\n`;
+      const from = editor.offsetToPos(startOff);
+      const to = editor.offsetToPos(startOff + curLen);
+      editor.replaceRange(block, from, to);
+      curLen = block.length;
+    };
 
-    const head = result.via
-      ? `> [!agent]+ ${parsed.agent.title} → ${result.via.title}\n> 🤝 *${displayName(parsed.agent)} consultou [[${baseName(result.via.filePath)}]]:*\n>`
-      : `> [!agent]+ ${parsed.agent.title}`;
+    write("> ⏳ pensando…");
+    const result = await this.runWithDelegation(agent, rest, (label) => write(`> ${label}`));
+    if (!result) { write("> ⚠️ Sem resposta. Configure/cheque o provider ativo em ⚙ Configurações."); return; }
+
+    const via = result.via ? `> 🤝 *${displayName(agent)} consultou [[${baseName(result.via.filePath)}]]:*\n>\n` : "";
     const quoted = (result.text || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
-    const block = `\n\n${head}\n${quoted}\n`;
-    editor.replaceRange(block, { line: lineIdx, ch: editor.getLine(lineIdx).length });
-    new Notice(`${displayName(parsed.agent)} respondeu${result.via ? ` (via ${displayName(result.via)})` : ""}.`);
+    write(`${via}${quoted}`);
+    new Notice(`${displayName(agent)} respondeu${result.via ? ` (via ${displayName(result.via)})` : ""}.`);
   }
 
   // Epic A — agent → native Canvas: turn "@Agent: topic" into a .canvas mind map.
   private async generateCanvasFromMention(editor: Editor) {
-    const lineIdx = editor.getCursor().line;
-    const parsed = this.parseMentionLine(editor.getLine(lineIdx));
-    if (!parsed) { new Notice("Formato: @Agente: tópico do mapa."); return; }
+    const parsed = this.findMention(editor);
+    if (!parsed) { new Notice(this.mentionHelp()); return; }
 
     const prompt = [
       `Crie um mapa visual (mind map) sobre: "${parsed.rest}".`,
