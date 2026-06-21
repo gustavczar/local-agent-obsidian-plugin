@@ -26,12 +26,22 @@ export class BrainstormModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: "🧠 Brainstorm multi-agente" });
-    contentEl.createEl("p", { cls: "setting-item-description", text: "Escolha 2+ agentes, o tema e quantas rodadas." });
+    contentEl.createEl("p", { cls: "setting-item-description", text: "Marque os agentes (quantos quiser, mín. 2), o tema e as rodadas." });
+
+    const boxes: HTMLInputElement[] = [];
+    const allRow = contentEl.createEl("label", { cls: "lao-bs-agent" });
+    const allCb = allRow.createEl("input", { attr: { type: "checkbox" } });
+    allRow.createSpan({ text: " Selecionar todos" });
+    allCb.addEventListener("change", () => {
+      for (const a of this.agents) { if (allCb.checked) this.selected.add(a.name); else this.selected.delete(a.name); }
+      for (const b of boxes) b.checked = allCb.checked;
+    });
 
     const list = contentEl.createDiv({ cls: "lao-bs-agents" });
     for (const a of this.agents) {
       const row = list.createEl("label", { cls: "lao-bs-agent" });
       const cb = row.createEl("input", { attr: { type: "checkbox" } });
+      boxes.push(cb);
       cb.addEventListener("change", () => { if (cb.checked) this.selected.add(a.name); else this.selected.delete(a.name); });
       row.createSpan({ text: " " + a.label });
     }

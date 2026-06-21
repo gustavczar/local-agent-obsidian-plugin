@@ -30,6 +30,8 @@ import { buildBrainstormNote } from "./brainstorm/buildBrainstormNote";
 import { ActionApprovalModal } from "./agency/ActionApprovalModal";
 import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export default class LocalAgentOfficePlugin extends Plugin {
   data!: PersistedData;
   registry!: AgentRegistry;
@@ -227,13 +229,19 @@ export default class LocalAgentOfficePlugin extends Plugin {
         if (progress.stopped) break outer;
         this.office?.setActivity(agent.name, "working");
         if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name);
-        const reply = await this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), []);
+        progress.status(`💭 ${displayName(agent)} pensando…`);
+        const reply = await this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 45000);
         this.office?.setActivity(agent.name, "idle");
-        if (reply == null) { progress.status(`⚠️ ${displayName(agent)} não respondeu — pulando.`); continue; }
-        const text = reply.trim();
-        transcript.push({ agent: baseName(agent.filePath), text });
-        progress.addTurn(displayName(agent), text);
+        if (reply == null || !reply.trim()) {
+          progress.status(`⚠️ ${displayName(agent)} não respondeu a tempo (provider lento/rate-limit) — pulei.`);
+          await sleep(800);
+          continue;
+        }
+        transcript.push({ agent: baseName(agent.filePath), text: reply.trim() });
+        progress.addTurn(displayName(agent), reply.trim());
         prevName = agent.name;
+        if (progress.stopped) break outer;
+        await sleep(900);
       }
     }
 
@@ -262,13 +270,13 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
-  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = []): Promise<string | null> {
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number): Promise<string | null> {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
     const notes = await resolveNotes(this.app, agent, mentions, this.data.contextFolders, message, this.data.autoConsultVault);
     const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates, agency);
     let reply = "";
-    try { for await (const t of makeAdapter(cfg).stream(messages, { system })) reply += t; }
+    try { for await (const t of makeAdapter(cfg).stream(messages, { system, timeoutMs })) reply += t; }
     catch (e) { new Notice(`⚠️ ${(e as Error).message}`); return null; }
     return reply;
   }

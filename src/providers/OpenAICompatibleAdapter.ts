@@ -22,7 +22,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
         messages: [{ role: "system", content: opts.system }, ...messages],
       }),
       throw: false,
-    }));
+    }), opts.timeoutMs);
 
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`Provider ${res.status}: ${providerErrorBody(res)}`);

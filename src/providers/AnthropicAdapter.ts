@@ -23,7 +23,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         messages,
       }),
       throw: false,
-    }));
+    }), opts.timeoutMs);
 
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`Anthropic ${res.status}: ${providerErrorBody(res)}`);
