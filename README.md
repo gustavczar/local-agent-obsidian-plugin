@@ -75,9 +75,22 @@ The whole interface is bilingual and **auto-detects your Obsidian language**. Sw
 
 ---
 
+## 📥 Install
+
+**Community store:** submission is pending Obsidian's review. Until then, install the beta in ~30 seconds with **BRAT**:
+
+1. Install **BRAT** (`Obsidian42-BRAT`) from Community plugins and enable it.
+2. Run the command **BRAT: Add a beta plugin**.
+3. Paste: `gustavczar/local-agent-obsidian-plugin`
+4. Enable **Local Agent Office** in Settings → Community plugins.
+
+BRAT keeps it updated automatically as new releases ship.
+
+---
+
 ## 🚀 Quickstart
 
-1. **Install** the plugin and enable it.
+1. **Install** the plugin (see above) and enable it.
 2. Open **Settings → Local Agent Office** → add a **provider** (kind, model, API key; base URL for OpenAI-compatible) and pick your **agents folder**.
 3. (Optional) Copy the starter personas from `examples/agents/` into your agents folder.
 4. Open the office (ribbon icon 🏢 or command **"Open Agent Office"**).
