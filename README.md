@@ -120,6 +120,18 @@ Full authoring contract (rooms, voice/values, delegation, context) is in
 Anthropic · OpenAI · DeepSeek · Groq · NVIDIA NIM · OpenRouter · Ollama (local) · any OpenAI-compatible endpoint.
 Requests go **only** to the endpoint you configure. Each call is bounded by a timeout so a slow provider never hangs the UI.
 
+## 💸 Token economy (you're in control)
+
+Multi-agent work (brainstorms, squads) makes many calls — so you decide how lean to run. Settings → **Economia de tokens**:
+
+| Setting | What it does |
+|---|---|
+| **Modo economia** | Forces lean context on *every* call: skips the vault auto-consult + context-folder injection, sending only the agent's persona, its `[[connections]]`, and the task. Far fewer tokens — less retrieval depth in exchange. |
+| **Teto de tokens por resposta** | Caps the model's output (`max_tokens`). `0` = provider default; e.g. `1024` for short, cheap replies. |
+| **Provider leve** | A cheap/fast model used for brainstorm, squads, and routing, while your 1:1 chat keeps the strong one. Routing answers are also capped tiny. Use a small fast model here so high-frequency runs stay smooth. |
+
+These are the levers; use them together (e.g. economy mode + a light model + a token cap) for the cheapest runs, or leave them off for maximum depth.
+
 ## 🔒 Privacy & security
 
 - **Local-first, no telemetry.** Your notes never leave your machine except as context in the requests *you* trigger to *your* chosen provider.
@@ -137,6 +149,10 @@ Requests go **only** to the endpoint you configure. Each call is bounded by a ti
 - Persona packs & an agent validator
 
 ---
+
+## 📖 Full guide
+
+Every feature, setting, workflow, and troubleshooting tip lives in **[`docs/GUIDE.md`](docs/GUIDE.md)**.
 
 ## 🛠️ Development
 
