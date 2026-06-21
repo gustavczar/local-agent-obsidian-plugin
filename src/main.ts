@@ -23,6 +23,10 @@ import { Agent, ChatMessage, AgentAction } from "./types";
 import { parseActions } from "./agency/parseActions";
 import { resolveTargetPath, provenanceFooter, stripTrailingProvenance, addToMemory } from "./agency/agencyPrompt";
 import { extractWikilinks } from "./context/extractWikilinks";
+import { BrainstormModal } from "./brainstorm/BrainstormModal";
+import { BrainstormProgressModal } from "./brainstorm/BrainstormProgressModal";
+import { buildBrainstormTurnPrompt, buildFacilitatorPrompt, FACILITATOR_SYSTEM, Turn } from "./brainstorm/buildBrainstormPrompt";
+import { buildBrainstormNote } from "./brainstorm/buildBrainstormNote";
 import { ActionApprovalModal } from "./agency/ActionApprovalModal";
 import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
 
@@ -76,6 +80,11 @@ export default class LocalAgentOfficePlugin extends Plugin {
       id: "act-on-vault",
       name: "Agir no cofre (@menção)",
       editorCallback: (editor) => void this.actOnVault(editor),
+    });
+    this.addCommand({
+      id: "brainstorm",
+      name: "Brainstorm multi-agente",
+      callback: () => void this.runBrainstorm(),
     });
     this.addSettingTab(new SettingsTab(this.app, this));
 
@@ -195,6 +204,61 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const file = await this.app.vault.create(path, buildSquadRun(squad.name, results, now));
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
     new Notice(`Squad "${squad.name}" concluído — ${results.length} passos.`);
+  }
+
+  // #6 — multi-agent brainstorm: selected agents discuss a topic in turns (auto), then a facilitator synthesizes.
+  private async runBrainstorm() {
+    const all = this.registry.all();
+    if (all.length < 2) { new Notice("Crie pelo menos 2 agentes para um brainstorm."); return; }
+    const setup = await new BrainstormModal(this.app, all.map((a) => ({ name: a.name, label: displayName(a) }))).openAndWait();
+    if (!setup) return;
+    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return; }
+
+    const agents = setup.agentNames.map((n) => this.registry.get(n)).filter((a): a is Agent => !!a);
+    const progress = new BrainstormProgressModal(this.app, setup.topic);
+    progress.open();
+
+    const transcript: Turn[] = [];
+    let prevName: string | null = null;
+    outer:
+    for (let r = 0; r < setup.rounds; r++) {
+      for (const agent of agents) {
+        if (progress.stopped) break outer;
+        this.office?.setActivity(agent.name, "working");
+        if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name);
+        const reply = await this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), []);
+        this.office?.setActivity(agent.name, "idle");
+        if (reply == null) { progress.status(`⚠️ ${displayName(agent)} não respondeu — pulando.`); continue; }
+        const text = reply.trim();
+        transcript.push({ agent: baseName(agent.filePath), text });
+        progress.addTurn(displayName(agent), text);
+        prevName = agent.name;
+      }
+    }
+
+    let synthesis = "";
+    if (transcript.length) {
+      progress.status("🧩 Facilitador sintetizando…");
+      try {
+        for await (const t of makeAdapter(cfg).stream(
+          [{ role: "user", content: buildFacilitatorPrompt(setup.topic, transcript) }],
+          { system: FACILITATOR_SYSTEM },
+        )) synthesis += t;
+      } catch (e) { progress.status(`⚠️ Síntese falhou: ${(e as Error).message}`); }
+    }
+
+    const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
+    }
+    const safe = (setup.topic.slice(0, 40).replace(/[\\/:*?"<>|]/g, "-").trim()) || "brainstorm";
+    const path = (folder ? `${folder}/` : "") + `Brainstorm ${safe} ${Date.now()}.md`;
+    const note = buildBrainstormNote(setup.topic, transcript, synthesis, agents.map((a) => baseName(a.filePath)), new Date());
+    const file = await this.app.vault.create(path, note);
+    progress.status(`✅ Concluído — ${transcript.length} falas.`);
+    progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file as TFile));
+    new Notice(`Brainstorm "${setup.topic}" concluído.`);
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).

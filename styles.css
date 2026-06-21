@@ -303,6 +303,13 @@
 .lao-tool-badge.is-create { background: var(--color-green, #1d9e75); color:#fff; }
 .lao-tool-badge.is-edit { background: var(--color-orange, #ba7517); color:#fff; }
 .lao-tool-badge.is-memory { background: var(--color-purple, #534AB7); color:#fff; }
+.lao-bs-agents { display:flex; flex-direction:column; gap:4px; max-height:160px; overflow:auto; margin:8px 0; padding:6px; border:1px solid var(--background-modifier-border); border-radius:6px; }
+.lao-bs-agent { display:flex; align-items:center; gap:6px; cursor:pointer; }
+.lao-bs-rounds { margin:8px 0; }
+.lao-bs-rounds input { width:60px; }
+.lao-bs-log { max-height:340px; overflow:auto; margin:8px 0; padding:8px; border:1px solid var(--background-modifier-border); border-radius:6px; }
+.lao-bs-turn { margin-bottom:10px; line-height:1.5; }
+.lao-bs-status { margin:6px 0; font-style:italic; }
 .lao-diff { font-family: var(--font-monospace); font-size:12px; max-height:200px; overflow:auto; border:1px solid var(--background-modifier-border); border-radius:6px; padding:6px; margin-bottom:10px; }
 .lao-diff-row { white-space:pre-wrap; }
 .lao-diff-row.is-add { background: rgba(29,158,117,.15); }
