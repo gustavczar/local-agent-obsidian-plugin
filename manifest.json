@@ -1,7 +1,7 @@
 {
   "id": "local-agent-office",
   "name": "Local Agent Office",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "minAppVersion": "1.5.0",
   "description": "Turn your vault into a team of AI agents built from your own notes — they chat, act on your notes (with approval), remember, and brainstorm together. Bring your own key, local-first.",
   "author": "Gustavo Lourenço",
