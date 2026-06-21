@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { t as tr } from "../i18n";
 
 export type StepDecision = { action: "approve" | "redo" | "cancel"; text: string };
 
@@ -24,21 +25,21 @@ export class StepApprovalModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: `Passo ${this.stepNum} · ${this.agentName}` });
+    contentEl.createEl("h3", { text: tr("step.title", { n: this.stepNum, agent: this.agentName }) });
     contentEl.createEl("p", {
       cls: "setting-item-description",
-      text: "Revise e edite se quiser. “Aprovar” usa o texto abaixo como entrada do próximo passo.",
+      text: tr("step.intro"),
     });
     const ta = contentEl.createEl("textarea", { cls: "lao-step-output" });
     ta.value = this.output;
     ta.rows = 14;
 
     const bar = contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { cls: "mod-cta", text: "✓ Aprovar e continuar" })
+    bar.createEl("button", { cls: "mod-cta", text: tr("step.approve") })
       .addEventListener("click", () => this.settle({ action: "approve", text: ta.value }));
-    bar.createEl("button", { text: "↻ Refazer" })
+    bar.createEl("button", { text: tr("step.redo") })
       .addEventListener("click", () => this.settle({ action: "redo", text: "" }));
-    bar.createEl("button", { text: "✕ Cancelar" })
+    bar.createEl("button", { text: tr("step.cancel") })
       .addEventListener("click", () => this.settle({ action: "cancel", text: "" }));
   }
 

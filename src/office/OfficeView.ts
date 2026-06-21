@@ -3,6 +3,7 @@ import { AgentRegistry } from "../registry/AgentRegistry";
 import { Agent } from "../types";
 import { Pos } from "./layout";
 import { accentOf, avatarGlyph, baseName, displayName, roleText } from "./avatar";
+import { t as tr } from "../i18n";
 
 export const OFFICE_VIEW = "lao-office-view";
 
@@ -70,13 +71,13 @@ export class OfficeView extends ItemView {
   private showCardMenu(e: MouseEvent, a: Agent) {
     e.preventDefault();
     const menu = new Menu();
-    menu.addItem((it) => it.setTitle("Conversar").setIcon("message-square").onClick(() => this.openChat(a.name)));
-    menu.addItem((it) => it.setTitle("Abrir nota do agente").setIcon("file-text").onClick(() => {
+    menu.addItem((it) => it.setTitle(tr("office.menu.chat")).setIcon("message-square").onClick(() => this.openChat(a.name)));
+    menu.addItem((it) => it.setTitle(tr("office.menu.openNote")).setIcon("file-text").onClick(() => {
       const f = this.app.vault.getAbstractFileByPath(a.filePath);
       if (f instanceof TFile) void this.app.workspace.getLeaf(true).openFile(f);
     }));
-    menu.addItem((it) => it.setTitle("Conectar…").setIcon("link").onClick(() => this.onConnect(a.name)));
-    menu.addItem((it) => it.setTitle("Configurações").setIcon("settings").onClick(() => this.openSettings()));
+    menu.addItem((it) => it.setTitle(tr("office.menu.connect")).setIcon("link").onClick(() => this.onConnect(a.name)));
+    menu.addItem((it) => it.setTitle(tr("office.settings")).setIcon("settings").onClick(() => this.openSettings()));
     menu.showAtMouseEvent(e);
   }
 
@@ -92,16 +93,16 @@ export class OfficeView extends ItemView {
     const bar = host.createDiv({ cls: "lao-toolbar" });
     bar.createSpan({ cls: "lao-brand", text: "Agent Office" });
     const rooms = new Set(agents.map((a) => a.room));
-    bar.createSpan({ cls: "lao-count", text: `${agents.length} agentes · ${rooms.size} salas` });
+    bar.createSpan({ cls: "lao-count", text: tr("office.count", { agents: agents.length, rooms: rooms.size }) });
 
     const spacer = bar.createDiv({ cls: "lao-spacer" });
     spacer.style.flex = "1";
 
-    const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: "Filtrar agentes…" } });
+    const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: tr("office.search") } });
     search.value = this.filter;
     search.addEventListener("input", () => { this.filter = search.value.toLowerCase(); this.applyFilter(); });
 
-    const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: "Conexões" });
+    const connBtn = bar.createEl("button", { cls: "lao-conn-btn", text: tr("office.connections") });
     connBtn.toggleClass("active", this.showAllConn);
     connBtn.addEventListener("click", () => {
       this.showAllConn = !this.showAllConn;
@@ -110,19 +111,19 @@ export class OfficeView extends ItemView {
       if (this.showAllConn) this.drawAllConnections();
     });
 
-    const addBtn = bar.createEl("button", { cls: "lao-add-btn mod-cta", text: "+ Agente" });
+    const addBtn = bar.createEl("button", { cls: "lao-add-btn mod-cta", text: tr("office.addAgent") });
     addBtn.addEventListener("click", () => this.onAddAgent());
 
-    const gear = bar.createEl("button", { cls: "lao-gear-btn", attr: { "aria-label": "Configurações" } });
+    const gear = bar.createEl("button", { cls: "lao-gear-btn", attr: { "aria-label": tr("office.settings") } });
     gear.setText("⚙");
     gear.addEventListener("click", () => this.openSettings());
 
     // Empty state
     if (!agents.length) {
       const empty = host.createDiv({ cls: "lao-empty" });
-      empty.createEl("h3", { text: "Nenhum agente ainda" });
-      empty.createEl("p", { text: "Clique em “+ Agente” para criar o primeiro, ou coloque uma nota .md na sua pasta de agentes (⚙ Configurações). Toda nota na pasta vira um agente." });
-      const cta = empty.createEl("button", { cls: "mod-cta", text: "+ Criar agente" });
+      empty.createEl("h3", { text: tr("office.empty.title") });
+      empty.createEl("p", { text: tr("office.empty.desc") });
+      const cta = empty.createEl("button", { cls: "mod-cta", text: tr("office.createFirst") });
       cta.addEventListener("click", () => this.onAddAgent());
       return;
     }
@@ -187,7 +188,7 @@ export class OfficeView extends ItemView {
     if (this.workingAgents.has(a.name)) status.addClass("working");
 
     const actions = card.createDiv({ cls: "lao-card-actions" });
-    const connectBtn = actions.createEl("button", { cls: "lao-card-act", text: "🔗", attr: { title: "Conectar a outro agente ou nota" } });
+    const connectBtn = actions.createEl("button", { cls: "lao-card-act", text: "🔗", attr: { title: tr("office.cardConnect") } });
     connectBtn.addEventListener("click", (e) => { e.stopPropagation(); this.onConnect(a.name); });
 
     card.addEventListener("click", () => this.openChat(a.name));

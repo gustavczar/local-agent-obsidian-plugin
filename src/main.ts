@@ -559,7 +559,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     }
     for (const f of this.app.vault.getMarkdownFiles()) {
       if (items.some((i) => i.linktext === f.basename)) continue;
-      items.push({ label: f.basename, sublabel: "nota", linktext: f.basename });
+      items.push({ label: f.basename, sublabel: t("ui.noteSub"), linktext: f.basename });
     }
 
     new ConnectModal(this.app, items, async (it) => {

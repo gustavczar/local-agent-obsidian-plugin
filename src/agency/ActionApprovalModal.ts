@@ -1,6 +1,7 @@
 import { App, Modal } from "obsidian";
 import { AgentAction } from "../types";
 import { diffLines } from "./diffLines";
+import { t as tr } from "../i18n";
 
 export type ActionDecision = { action: "approve" | "skip" | "cancel"; content: string };
 
@@ -36,16 +37,16 @@ export class ActionApprovalModal extends Modal {
     const { contentEl } = this;
     const tool = this.act.tool;
 
-    contentEl.createEl("h3", { text: `Ação ${this.idx} de ${this.total} · ${this.agentName}` });
+    contentEl.createEl("h3", { text: tr("aa.title", { idx: this.idx, total: this.total, agent: this.agentName }) });
 
     let badgeText: string, badgeCls: string;
-    if (tool === "create_note") { badgeText = "criar nota"; badgeCls = "is-create"; }
-    else if (tool === "edit_note") { badgeText = `editar nota (${this.act.mode})`; badgeCls = "is-edit"; }
-    else { badgeText = "anotar memória"; badgeCls = "is-memory"; }
+    if (tool === "create_note") { badgeText = tr("aa.badge.create"); badgeCls = "is-create"; }
+    else if (tool === "edit_note") { badgeText = tr("aa.badge.edit", { mode: this.act.mode }); badgeCls = "is-edit"; }
+    else { badgeText = tr("aa.badge.memory"); badgeCls = "is-memory"; }
     const badge = contentEl.createDiv({ cls: `lao-tool-badge ${badgeCls}` });
     badge.setText(badgeText);
 
-    const pathLabel = tool === "append_memory" ? `Memória do agente: ${this.finalPath}` : `Caminho: ${this.finalPath}`;
+    const pathLabel = tool === "append_memory" ? tr("aa.pathMemory", { path: this.finalPath }) : tr("aa.path", { path: this.finalPath });
     contentEl.createEl("p", { cls: "setting-item-description", text: pathLabel });
 
     if (tool === "edit_note" && this.currentContent != null) {
@@ -59,17 +60,17 @@ export class ActionApprovalModal extends Modal {
       }
     }
 
-    contentEl.createEl("p", { cls: "setting-item-description", text: "Conteúdo a gravar (editável):" });
+    contentEl.createEl("p", { cls: "setting-item-description", text: tr("aa.contentLabel") });
     const ta = contentEl.createEl("textarea", { cls: "lao-step-output" });
     ta.value = this.act.content;
     ta.rows = 12;
 
     const bar = contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { cls: "mod-cta", text: "✓ Aprovar e executar" })
+    bar.createEl("button", { cls: "mod-cta", text: tr("aa.approve") })
       .addEventListener("click", () => this.settle({ action: "approve", content: ta.value }));
-    bar.createEl("button", { text: "⏭ Pular" })
+    bar.createEl("button", { text: tr("aa.skip") })
       .addEventListener("click", () => this.settle({ action: "skip", content: "" }));
-    bar.createEl("button", { text: "✕ Cancelar" })
+    bar.createEl("button", { text: tr("aa.cancel") })
       .addEventListener("click", () => this.settle({ action: "cancel", content: "" }));
   }
 

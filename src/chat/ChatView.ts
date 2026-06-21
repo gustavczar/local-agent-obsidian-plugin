@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { Agent } from "../types";
 import { ChatSession } from "./ChatSession";
 import { accentOf, avatarGlyph, displayName } from "../office/avatar";
+import { t as tr } from "../i18n";
 
 export const CHAT_VIEW = "lao-chat-view";
 
@@ -57,15 +58,15 @@ export class ChatView extends ItemView {
     av.setText(avatarGlyph(this.agent));
     const htext = header.createDiv({ cls: "lao-chat-head-text" });
     htext.createDiv({ cls: "lao-chat-head-name", text: displayName(this.agent) });
-    htext.createDiv({ cls: "lao-chat-head-room", text: `Sala · ${this.agent.room}` });
+    htext.createDiv({ cls: "lao-chat-head-room", text: tr("chat.headRoom", { room: this.agent.room }) });
 
     this.logEl = root.createDiv({ cls: "lao-chat-log" });
 
     const bar = root.createDiv({ cls: "lao-chat-bar" });
-    this.inputEl = bar.createEl("textarea", { cls: "lao-chat-input", attr: { rows: "1", placeholder: "Pergunte ao agente… (use @ para mencionar)" } });
-    const send = bar.createEl("button", { cls: "mod-cta", text: "Enviar" });
+    this.inputEl = bar.createEl("textarea", { cls: "lao-chat-input", attr: { rows: "1", placeholder: tr("chat.inputPh") } });
+    const send = bar.createEl("button", { cls: "mod-cta", text: tr("chat.send") });
     send.addEventListener("click", () => void this.handleSend());
-    bar.createEl("button", { text: "Cristalizar" }).addEventListener("click", () => void this.crystallize(this.agent, this.session));
+    bar.createEl("button", { text: tr("chat.crystallize") }).addEventListener("click", () => void this.crystallize(this.agent, this.session));
 
     this.inputEl.addEventListener("input", () => this.updateSuggest());
     this.inputEl.addEventListener("keydown", (e) => this.onInputKey(e));
@@ -94,14 +95,14 @@ export class ChatView extends ItemView {
       if (a.name === this.agent?.name) continue;
       const hay = `${displayName(a)} ${a.name}`.toLowerCase();
       if (query && !hay.includes(query)) continue;
-      items.push({ label: displayName(a), sub: `agente · ${a.room}`, linktext: baseName(a.filePath) });
+      items.push({ label: displayName(a), sub: tr("chat.agentSub", { room: a.room }), linktext: baseName(a.filePath) });
       if (items.length >= 6) break;
     }
     for (const f of this.app.vault.getMarkdownFiles()) {
       if (items.length >= 12) break;
       if (query && !f.basename.toLowerCase().includes(query)) continue;
       if (items.some((i) => i.linktext === f.basename)) continue;
-      items.push({ label: f.basename, sub: "nota", linktext: f.basename });
+      items.push({ label: f.basename, sub: tr("ui.noteSub"), linktext: f.basename });
     }
     return items;
   }

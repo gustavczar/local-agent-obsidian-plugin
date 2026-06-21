@@ -1,4 +1,5 @@
 import { App, Modal, Notice } from "obsidian";
+import { t as tr } from "../i18n";
 
 export type BrainstormSetup = { agentNames: string[]; topic: string; rounds: number };
 
@@ -25,13 +26,13 @@ export class BrainstormModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: "🧠 Brainstorm multi-agente" });
-    contentEl.createEl("p", { cls: "setting-item-description", text: "Marque os agentes (quantos quiser, mín. 2), o tema e as rodadas." });
+    contentEl.createEl("h3", { text: tr("bs.title") });
+    contentEl.createEl("p", { cls: "setting-item-description", text: tr("bs.intro") });
 
     const boxes: HTMLInputElement[] = [];
     const allRow = contentEl.createEl("label", { cls: "lao-bs-agent" });
     const allCb = allRow.createEl("input", { attr: { type: "checkbox" } });
-    allRow.createSpan({ text: " Selecionar todos" });
+    allRow.createSpan({ text: tr("bs.selectAll") });
     allCb.addEventListener("change", () => {
       for (const a of this.agents) { if (allCb.checked) this.selected.add(a.name); else this.selected.delete(a.name); }
       for (const b of boxes) b.checked = allCb.checked;
@@ -46,22 +47,22 @@ export class BrainstormModal extends Modal {
       row.createSpan({ text: " " + a.label });
     }
 
-    contentEl.createEl("p", { cls: "setting-item-description", text: "Tema:" });
+    contentEl.createEl("p", { cls: "setting-item-description", text: tr("bs.topic") });
     const topic = contentEl.createEl("textarea", { cls: "lao-step-output" });
     topic.rows = 3;
 
     const roundsRow = contentEl.createDiv({ cls: "lao-bs-rounds" });
-    roundsRow.createSpan({ text: "Rodadas: " });
+    roundsRow.createSpan({ text: tr("bs.rounds") });
     const rounds = roundsRow.createEl("input", { attr: { type: "number", min: "1", max: "5", value: "3" } });
 
     const bar = contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { cls: "mod-cta", text: "Iniciar" }).addEventListener("click", () => {
-      if (this.selected.size < 2) { new Notice("Escolha pelo menos 2 agentes."); return; }
+    bar.createEl("button", { cls: "mod-cta", text: tr("bs.start") }).addEventListener("click", () => {
+      if (this.selected.size < 2) { new Notice(tr("bs.minTwo")); return; }
       const t = topic.value.trim();
       if (!t) { topic.focus(); return; }
       this.settle({ agentNames: [...this.selected], topic: t, rounds: Math.max(1, Math.min(5, Number(rounds.value) || 3)) });
     });
-    bar.createEl("button", { text: "Cancelar" }).addEventListener("click", () => this.settle(null));
+    bar.createEl("button", { text: tr("bs.cancel") }).addEventListener("click", () => this.settle(null));
   }
 
   onClose() { this.contentEl.empty(); this.settle(null); }

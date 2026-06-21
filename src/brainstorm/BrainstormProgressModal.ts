@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { t as tr } from "../i18n";
 
 /** Live view of a running brainstorm: turns stream in; Stop (or closing) cancels immediately. */
 export class BrainstormProgressModal extends Modal {
@@ -23,11 +24,11 @@ export class BrainstormProgressModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h3", { text: `🧠 Brainstorm: ${this.topic}` });
+    contentEl.createEl("h3", { text: tr("bsp.title", { topic: this.topic }) });
     this.log = contentEl.createDiv({ cls: "lao-bs-log" });
     const bar = contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { text: "⏹ Parar" }).addEventListener("click", () => {
-      this.status("⏹ Parando…");
+    bar.createEl("button", { text: tr("bsp.stop") }).addEventListener("click", () => {
+      this.status(tr("bsp.stopping"));
       this.triggerStop();
     });
   }
@@ -46,8 +47,8 @@ export class BrainstormProgressModal extends Modal {
 
   finish(open: () => void) {
     const bar = this.contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { cls: "mod-cta", text: "Abrir nota" }).addEventListener("click", () => { open(); this.close(); });
-    bar.createEl("button", { text: "Fechar" }).addEventListener("click", () => this.close());
+    bar.createEl("button", { cls: "mod-cta", text: tr("bsp.openNote") }).addEventListener("click", () => { open(); this.close(); });
+    bar.createEl("button", { text: tr("bsp.close") }).addEventListener("click", () => this.close());
   }
 
   onClose() { this.triggerStop(); }
