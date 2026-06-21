@@ -234,7 +234,9 @@ export class OfficeView extends ItemView {
   }
 
   private line(a: { x: number; y: number }, b: { x: number; y: number }, cls: string) {
-    this.overlay.createSvg("line", { cls, attr: { x1: a.x, y1: a.y, x2: b.x, y2: b.y } });
+    // NB: set the class via the `class` attribute, not `cls` — multi-class strings ("lao-link active")
+    // go through classList.add() for SVG and throw InvalidCharacterError on the space.
+    this.overlay.createSvg("line", { attr: { class: cls, x1: a.x, y1: a.y, x2: b.x, y2: b.y } });
   }
 
   private highlightConnections(agent: Agent) {

@@ -236,7 +236,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
             // Race the turn against the Stop signal so Parar/closing interrupts immediately,
             // even while a slow provider call is still pending (the abandoned call is discarded).
             const reply = await Promise.race([
-              this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 30000),
+              this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 30000, true),
               progress.whenStopped().then(() => null),
             ]);
             if (progress.stopped) break outer;
@@ -248,7 +248,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
             transcript.push({ agent: baseName(agent.filePath), text: reply.trim() });
             progress.addTurn(displayName(agent), reply.trim());
             prevName = agent.name;
-            await sleep(700);
+            await sleep(1200);
           } catch (e) {
             console.error("[brainstorm] turn error", e);
             progress.status(`⚠️ Erro no turno de ${displayName(agent)}: ${(e as Error).message} — pulei.`);
@@ -296,10 +296,14 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
-  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number): Promise<string | null> {
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number, lean = false): Promise<string | null> {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
-    const notes = await resolveNotes(this.app, agent, mentions, this.data.contextFolders, message, this.data.autoConsultVault);
+    // lean mode (brainstorm): keep the agent's own connections/mentions but skip the heavy
+    // context-folder + vault auto-consult so each turn stays small (fewer tokens → fewer rate-limits).
+    const notes = lean
+      ? await resolveNotes(this.app, agent, mentions, [], message, false)
+      : await resolveNotes(this.app, agent, mentions, this.data.contextFolders, message, this.data.autoConsultVault);
     const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates, agency);
     let reply = "";
     try { for await (const t of makeAdapter(cfg).stream(messages, { system, timeoutMs })) reply += t; }
