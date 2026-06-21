@@ -154,7 +154,7 @@ export class OfficeView extends ItemView {
     for (const room of [...byRoom.keys()].sort((x, y) => x.localeCompare(y))) {
       const panel = this.floorEl.createDiv({ cls: "lao-room-panel" });
       const head = panel.createDiv({ cls: "lao-room-head" });
-      head.createSpan({ cls: "lao-room-name", text: `SALA · ${room.toUpperCase()}` });
+      head.createSpan({ cls: "lao-room-name", text: tr("office.room", { name: room.toUpperCase() }) });
       head.createSpan({ cls: "lao-room-count", text: String(byRoom.get(room)!.length) });
 
       const desks = panel.createDiv({ cls: "lao-desks" });
@@ -182,7 +182,7 @@ export class OfficeView extends ItemView {
     const role = roleText(a);
     if (role) main.createDiv({ cls: "lao-card-role", text: role });
     const meta = main.createDiv({ cls: "lao-card-meta" });
-    if (a.connections.length) meta.createSpan({ cls: "lao-card-links", text: `${a.connections.length} conexões` });
+    if (a.connections.length) meta.createSpan({ cls: "lao-card-links", text: tr("office.connCount", { n: a.connections.length }) });
 
     const status = card.createDiv({ cls: "lao-status" });
     if (this.workingAgents.has(a.name)) status.addClass("working");

@@ -18,9 +18,11 @@ describe("buildPrompt", () => {
     expect(out.messages).toEqual([{ role: "user", content: "decidir?" }]);
   });
 
-  it("omits the knowledge section when there are no notes", () => {
+  it("omits the knowledge section but appends the reply-language directive", () => {
     const out = buildPrompt(agent, [{ role: "user", content: "oi" }], []);
-    expect(out.system).toBe("You are Nexo.");
+    expect(out.system).toContain("You are Nexo.");
+    expect(out.system).not.toContain("Conhecimento do cofre");
+    expect(out.system).toContain("Always reply in the same language");
   });
 
   it("adds a delegation directive listing available peers", () => {

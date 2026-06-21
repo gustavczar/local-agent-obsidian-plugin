@@ -1,5 +1,6 @@
 import { Agent, ChatMessage, ContextNote, BuiltPrompt } from "../types";
 import { AGENCY_DIRECTIVE } from "../agency/agencyPrompt";
+import { t } from "../i18n";
 
 export function buildPrompt(
   agent: Agent,
@@ -19,5 +20,6 @@ export function buildPrompt(
     system += `\n\n---\n## Roteamento\nVocê é ${agent.title}. Se a pergunta for claramente da especialidade de OUTRO colega, responda APENAS com "DELEGATE: <nome>" (só o nome, nada mais). Caso contrário, responda normalmente sem mencionar isto. Colegas disponíveis:\n${delegates.map((d) => `- ${d}`).join("\n")}`;
   }
   if (agency) system += AGENCY_DIRECTIVE;
+  system += `\n\n---\n${t("prompt.replyLanguage")}`;
   return { system, messages };
 }

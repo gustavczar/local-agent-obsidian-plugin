@@ -166,6 +166,31 @@ const en: Record<string, string> = {
   "chat.agentSub": "agent · {room}",
   "ui.noteSub": "note",
   "office.cardConnect": "Connect to another agent or note",
+  "office.room": "ROOM · {name}",
+  "office.connCount": "{n} connections",
+  // Brainstorm live status
+  "bs.thinking": "💭 {agent} is thinking…",
+  "bs.noReply": "⚠️ {agent} didn't answer (slow provider/rate-limit) — skipped.",
+  "bs.turnError": "⚠️ Error on {agent}'s turn: {err} — skipped.",
+  "bs.synthesizing": "🧩 Facilitator is synthesizing…",
+  "bs.synthFailed": "⚠️ Synthesis failed: {err}",
+  "bs.stoppedSaving": "⏹ Stopped — saving what we have (no synthesis).",
+  "bs.nothingToSave": "Nothing to save — no turns were generated.",
+  "bs.finished": "✅ {verb} — {count} turns.",
+  "bs.verbStopped": "Stopped",
+  "bs.verbDone": "Done",
+  // Inline (@agent in a note) status
+  "inline.analyzing": "⏳ {agent} is analyzing…",
+  "inline.routed": "🤝 {agent} routed to {pick}…",
+  "inline.thinking": "⏳ {agent} is thinking…",
+  "inline.thinkingBare": "⏳ thinking…",
+  "inline.noReplyConfig": "⚠️ No reply. Configure/check the active provider in ⚙ Settings.",
+  "inline.noReply": "⚠️ No reply. Check the active provider.",
+  "inline.planning": "⏳ planning actions…",
+  "inline.noActions": "⚠️ The agent didn't return valid actions.",
+  "inline.noProposed": "ℹ️ No action proposed.",
+  // Reply-language directive (appended to the system prompt)
+  "prompt.replyLanguage": "Always reply in the same language the user writes in.",
 };
 
 const pt: Record<string, string> = {
@@ -326,6 +351,31 @@ const pt: Record<string, string> = {
   "chat.agentSub": "agente · {room}",
   "ui.noteSub": "nota",
   "office.cardConnect": "Conectar a outro agente ou nota",
+  "office.room": "SALA · {name}",
+  "office.connCount": "{n} conexões",
+  // Brainstorm live status
+  "bs.thinking": "💭 {agent} pensando…",
+  "bs.noReply": "⚠️ {agent} não respondeu (provider lento/rate-limit) — pulei.",
+  "bs.turnError": "⚠️ Erro no turno de {agent}: {err} — pulei.",
+  "bs.synthesizing": "🧩 Facilitador sintetizando…",
+  "bs.synthFailed": "⚠️ Síntese falhou: {err}",
+  "bs.stoppedSaving": "⏹ Parado — salvando o que já temos (sem síntese).",
+  "bs.nothingToSave": "Nada a salvar — nenhuma fala foi gerada.",
+  "bs.finished": "✅ {verb} — {count} falas.",
+  "bs.verbStopped": "Parado",
+  "bs.verbDone": "Concluído",
+  // Inline (@agente numa nota) status
+  "inline.analyzing": "⏳ {agent} analisando…",
+  "inline.routed": "🤝 {agent} encaminhou para {pick}…",
+  "inline.thinking": "⏳ {agent} pensando…",
+  "inline.thinkingBare": "⏳ pensando…",
+  "inline.noReplyConfig": "⚠️ Sem resposta. Configure/cheque o provider ativo em ⚙ Configurações.",
+  "inline.noReply": "⚠️ Sem resposta. Cheque o provider ativo.",
+  "inline.planning": "⏳ planejando ações…",
+  "inline.noActions": "⚠️ O agente não retornou ações válidas.",
+  "inline.noProposed": "ℹ️ Nenhuma ação proposta.",
+  // Diretriz de idioma (anexada ao system prompt)
+  "prompt.replyLanguage": "Responda sempre no mesmo idioma em que o usuário escreve.",
 };
 
 const dicts: Record<Lang, Record<string, string>> = { en, pt };

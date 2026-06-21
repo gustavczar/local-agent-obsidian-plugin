@@ -12,9 +12,7 @@ all rendered as a spatial office you can watch work in real time.
 Bring your own key. Local-first. No telemetry. English & Portuguese UI.
 Works with Anthropic, OpenAI, DeepSeek, Groq, NVIDIA NIM, OpenRouter, or local Ollama.
 
-<!-- HERO GIF — the 30s demo. Replace the line below with: ![demo](docs/demo.gif) -->
-<!-- Suggested shot: open office → start a brainstorm (agents light up + talk live) → a note is born → approval modal with diff. -->
-> 🎬 **Demo GIF goes here** — see `docs/` (drop `demo.gif`).
+![Local Agent Office demo](docs/demo.gif)
 
 </div>
 

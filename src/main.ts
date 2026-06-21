@@ -268,7 +268,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
           try {
             this.office?.setActivity(agent.name, "working");
             try { if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name); } catch { /* visual only */ }
-            progress.status(`💭 ${displayName(agent)} pensando…`);
+            progress.status(t("bs.thinking", { agent: displayName(agent) }));
             // Race the turn against the Stop signal so Parar/closing interrupts immediately,
             // even while a slow provider call is still pending (the abandoned call is discarded).
             const reply = await Promise.race([
@@ -277,7 +277,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
             ]);
             if (progress.stopped) break outer;
             if (reply == null || !reply.trim()) {
-              progress.status(`⚠️ ${displayName(agent)} não respondeu (provider lento/rate-limit) — pulei.`);
+              progress.status(t("bs.noReply", { agent: displayName(agent) }));
               await sleep(600);
               continue;
             }
@@ -287,7 +287,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
             await sleep(1200);
           } catch (e) {
             console.error("[brainstorm] turn error", e);
-            progress.status(`⚠️ Erro no turno de ${displayName(agent)}: ${(e as Error).message} — pulei.`);
+            progress.status(t("bs.turnError", { agent: displayName(agent), err: (e as Error).message }));
           } finally {
             this.office?.setActivity(agent.name, "idle");
           }
@@ -300,19 +300,19 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     let synthesis = "";
     if (!progress.stopped && transcript.length) {
-      progress.status("🧩 Facilitador sintetizando…");
+      progress.status(t("bs.synthesizing"));
       try {
         for await (const t of makeAdapter(this.cfgFor(true) ?? cfg).stream(
           [{ role: "user", content: buildFacilitatorPrompt(setup.topic, transcript) }],
           { system: FACILITATOR_SYSTEM, timeoutMs: 45000, maxTokens: this.data.maxTokens },
         )) synthesis += t;
-      } catch (e) { progress.status(`⚠️ Síntese falhou: ${(e as Error).message}`); }
+      } catch (e) { progress.status(t("bs.synthFailed", { err: (e as Error).message })); }
     } else if (progress.stopped) {
-      progress.status("⏹ Parado — salvando o que já temos (sem síntese).");
+      progress.status(t("bs.stoppedSaving"));
     }
 
     if (!transcript.length) {
-      progress.status("Nada a salvar — nenhuma fala foi gerada.");
+      progress.status(t("bs.nothingToSave"));
       new Notice(t("notice.brainstormNoTurns"));
       return;
     }
@@ -326,7 +326,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const note = buildBrainstormNote(setup.topic, transcript, synthesis, agents.map((a) => baseName(a.filePath)), new Date());
     const file = await this.app.vault.create(path, note);
     const verb = progress.stopped ? t("notice.verbStopped") : t("notice.verbDone");
-    progress.status(`✅ ${progress.stopped ? "Parado" : "Concluído"} — ${transcript.length} falas.`);
+    progress.status(t("bs.finished", { verb: progress.stopped ? t("bs.verbStopped") : t("bs.verbDone"), count: transcript.length }));
     progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file as TFile));
     new Notice(t("notice.brainstormDone", { topic: setup.topic, verb, count: transcript.length }));
   }
@@ -387,7 +387,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const office = this.office;
     const all = this.registry.all();
     office?.setActivity(agent.name, "working");
-    onStage?.(`⏳ ${displayName(agent)} analisando…`);
+    onStage?.(t("inline.analyzing", { agent: displayName(agent) }));
 
     let answerer = agent;
     let via: Agent | undefined;
@@ -399,9 +399,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
         office?.setActivity(agent.name, "waiting");
         office?.setActivity(pick.name, "working");
         office?.flashDelegation(agent.name, pick.name);
-        onStage?.(`🤝 ${displayName(agent)} encaminhou para ${displayName(pick)}…`);
+        onStage?.(t("inline.routed", { agent: displayName(agent), pick: displayName(pick) }));
       } else {
-        onStage?.(`⏳ ${displayName(agent)} pensando…`);
+        onStage?.(t("inline.thinking", { agent: displayName(agent) }));
       }
     }
 
@@ -428,9 +428,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
       curLen = block.length;
     };
 
-    write("> ⏳ pensando…");
+    write("> " + t("inline.thinkingBare"));
     const result = await this.runWithDelegation(agent, rest, (label) => write(`> ${label}`));
-    if (!result) { write("> ⚠️ Sem resposta. Configure/cheque o provider ativo em ⚙ Configurações."); return; }
+    if (!result) { write("> " + t("inline.noReplyConfig")); return; }
 
     const via = result.via ? `> 🤝 *${displayName(agent)} consultou [[${baseName(result.via.filePath)}]]:*\n>\n` : "";
     const quoted = (result.text || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
@@ -453,13 +453,13 @@ export default class LocalAgentOfficePlugin extends Plugin {
       editor.replaceRange(block, editor.offsetToPos(startOff), editor.offsetToPos(startOff + curLen));
       curLen = block.length;
     };
-    write("> ⏳ planejando ações…");
+    write("> " + t("inline.planning"));
     this.office?.setActivity(agent.name, "working");
     const reply = await this.rawAgentCall(agent, rest, [], true);
-    if (reply == null) { this.office?.setActivity(agent.name, "idle"); write("> ⚠️ Sem resposta. Cheque o provider ativo."); return; }
+    if (reply == null) { this.office?.setActivity(agent.name, "idle"); write("> " + t("inline.noReply")); return; }
     const actions = parseActions(reply);
-    if (actions == null) { this.office?.setActivity(agent.name, "idle"); write("> ⚠️ O agente não retornou ações válidas."); return; }
-    if (actions.length === 0) { this.office?.setActivity(agent.name, "idle"); write("> ℹ️ Nenhuma ação proposta."); return; }
+    if (actions == null) { this.office?.setActivity(agent.name, "idle"); write("> " + t("inline.noActions")); return; }
+    if (actions.length === 0) { this.office?.setActivity(agent.name, "idle"); write("> " + t("inline.noProposed")); return; }
     const results: ActionResult[] = [];
     const linktext = baseName(agent.filePath);
     for (let i = 0; i < actions.length; i++) {
