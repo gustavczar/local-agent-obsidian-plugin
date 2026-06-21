@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { OPENAI_COMPAT_PRESETS } from "../providers/ProviderAdapter";
 import type LocalAgentOfficePlugin from "../main";
+import { t, setLanguage, LangPref } from "../i18n";
 
 export class SettingsTab extends PluginSettingTab {
   constructor(app: App, private plugin: LocalAgentOfficePlugin) { super(app, plugin); }
@@ -9,6 +10,21 @@ export class SettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     const data = this.plugin.data;
+
+    new Setting(containerEl)
+      .setName(t("set.language.name"))
+      .setDesc(t("set.language.desc"))
+      .addDropdown((d) => d
+        .addOption("auto", t("set.language.auto"))
+        .addOption("en", "English")
+        .addOption("pt", "Português")
+        .setValue(data.language)
+        .onChange(async (v) => {
+          data.language = v as LangPref;
+          setLanguage(data.language);
+          await this.plugin.persist();
+          this.display();
+        }));
 
     new Setting(containerEl)
       .setName("Pasta de agentes")

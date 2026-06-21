@@ -1,6 +1,8 @@
 import { ProviderConfig } from "../types";
+import { LangPref } from "../i18n";
 
 export interface PersistedData {
+  language: LangPref;        // "auto" | "en" | "pt"
   agentsFolder: string;
   conversationsFolder: string;
   contextFolders: string[];
@@ -17,6 +19,7 @@ export interface PersistedData {
 }
 
 export const DEFAULT_SETTINGS: PersistedData = {
+  language: "auto",
   agentsFolder: "06. Sistema/SUB-AGENTS",
   conversationsFolder: "Conversas Local Agent",
   contextFolders: [],
@@ -34,6 +37,7 @@ export const DEFAULT_SETTINGS: PersistedData = {
 export function withDefaults(raw: Partial<PersistedData> | null): PersistedData {
   if (!raw) return { ...DEFAULT_SETTINGS };
   return {
+    language: raw.language ?? DEFAULT_SETTINGS.language,
     agentsFolder: raw.agentsFolder ?? DEFAULT_SETTINGS.agentsFolder,
     conversationsFolder: raw.conversationsFolder ?? DEFAULT_SETTINGS.conversationsFolder,
     contextFolders: raw.contextFolders ?? [],

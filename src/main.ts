@@ -3,6 +3,7 @@ import { displayName, baseName, roleText } from "./office/avatar";
 import { withDefaults, PersistedData } from "./store/PluginStore";
 import { AgentRegistry, stripFrontmatter } from "./registry/AgentRegistry";
 import { validateAgent } from "./registry/validateAgent";
+import { t, setLanguage } from "./i18n";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
 import { ChatView, CHAT_VIEW } from "./chat/ChatView";
 import { ChatSession } from "./chat/ChatSession";
@@ -40,6 +41,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   async onload() {
     this.data = withDefaults(await this.loadData());
+    setLanguage(this.data.language);
     this.registry = new AgentRegistry(this.app, this.data.agentsFolder);
 
     this.registerView(OFFICE_VIEW, (leaf) => {
@@ -62,36 +64,36 @@ export default class LocalAgentOfficePlugin extends Plugin {
       () => this.registry.all(),
     ));
 
-    this.addRibbonIcon("building-2", "Open Agent Office", () => void this.openOffice());
-    this.addCommand({ id: "open-agent-office", name: "Open Agent Office", callback: () => void this.openOffice() });
+    this.addRibbonIcon("building-2", t("ribbon.openOffice"), () => void this.openOffice());
+    this.addCommand({ id: "open-agent-office", name: t("cmd.openOffice"), callback: () => void this.openOffice() });
     this.addCommand({
       id: "answer-inline-mention",
-      name: "Responder @menção na linha atual",
+      name: t("cmd.answerMention"),
       editorCallback: (editor) => void this.answerInlineMention(editor),
     });
     this.addCommand({
       id: "generate-canvas-mention",
-      name: "Gerar Canvas da @menção na linha atual",
+      name: t("cmd.generateCanvas"),
       editorCallback: (editor) => void this.generateCanvasFromMention(editor),
     });
     this.addCommand({
       id: "run-squad",
-      name: "Rodar squad (nota atual)",
+      name: t("cmd.runSquad"),
       callback: () => void this.runSquadActive(),
     });
     this.addCommand({
       id: "act-on-vault",
-      name: "Agir no cofre (@menção)",
+      name: t("cmd.actOnVault"),
       editorCallback: (editor) => void this.actOnVault(editor),
     });
     this.addCommand({
       id: "brainstorm",
-      name: "Brainstorm multi-agente",
+      name: t("cmd.brainstorm"),
       callback: () => void this.runBrainstorm(),
     });
     this.addCommand({
       id: "validate-agents",
-      name: "Validar agentes (frontmatter/estrutura)",
+      name: t("cmd.validateAgents"),
       callback: () => void this.validateAgents(),
     });
     this.addSettingTab(new SettingsTab(this.app, this));
@@ -102,7 +104,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   private async validateAgents() {
     const agents = this.registry.all();
-    if (!agents.length) { new Notice("Nenhum agente na pasta configurada."); return; }
+    if (!agents.length) { new Notice(t("notice.noAgentsInFolder")); return; }
     let errors = 0, warns = 0;
     const lines: string[] = [];
     for (const a of agents) {
@@ -118,12 +120,12 @@ export default class LocalAgentOfficePlugin extends Plugin {
         lines.push(`  ${i.level === "error" ? "❌" : "⚠️"} ${i.message}`);
       }
     }
-    if (!lines.length) { new Notice(`✅ ${agents.length} agente(s) — tudo válido.`); return; }
-    console.log("[Local Agent Office] Validação de agentes:\n" + lines.join("\n"));
+    if (!lines.length) { new Notice(t("notice.allValid", { count: agents.length })); return; }
+    console.log("[Local Agent Office] Agent validation:\n" + lines.join("\n"));
     new Notice(
-      `${agents.length} agente(s) · ${errors} erro(s) · ${warns} aviso(s).\n` +
+      t("notice.validateSummary", { count: agents.length, errors, warns }) + "\n" +
       lines.slice(0, 12).join("\n") +
-      (lines.length > 12 ? "\n… (resto no console — Ctrl+Shift+I)" : ""),
+      (lines.length > 12 ? t("notice.validateMore") : ""),
       0,
     );
   }
@@ -132,7 +134,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   private makeSession(agent: Agent): ChatSession {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
-    if (!cfg) { new Notice("Configure um provider ativo nas settings."); throw new Error("No active provider"); }
+    if (!cfg) { new Notice(t("notice.noProvider")); throw new Error("No active provider"); }
     return new ChatSession(agent, makeAdapter(cfg), (a, mentions, query) =>
       resolveNotes(this.app, a, mentions, this.data.contextFolders, query, this.data.autoConsultVault));
   }
@@ -171,14 +173,14 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
   private mentionHelp(): string {
     const names = this.registry.all().map((a) => displayName(a)).slice(0, 10).join(", ");
-    return `Escreva "@Agente: sua pergunta" na nota. Agentes: ${names || "(nenhum — crie em + Agente)"}.`;
+    return t("mention.help", { names: names || t("mention.none") });
   }
 
   // Run an agent once and return its full reply (or null on error/no provider).
   private async runAgentReply(agent: Agent, message: string): Promise<string | null> {
     let session: ChatSession;
     try { session = this.makeSession(agent); } catch { return null; }
-    const notice = new Notice(`${displayName(agent)} está pensando…`, 0);
+    const notice = new Notice(t("notice.thinking", { agent: displayName(agent) }), 0);
     let reply = "";
     const off = session.onToken((t) => { reply += t; });
     try { await session.send(message, []); }
@@ -197,9 +199,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
   // Epic D — orchestration: run a squad note's steps in sequence, with per-step approval. Each step feeds the next (X→Y).
   private async runSquadActive() {
     const file = this.app.workspace.getActiveFile();
-    if (!file) { new Notice("Abra a nota do squad e rode o comando nela."); return; }
+    if (!file) { new Notice(t("notice.openSquadNote")); return; }
     const squad = parseSquad(await this.app.vault.read(file));
-    if (!squad.steps.length) { new Notice("Nenhum passo encontrado. Use: 1. [[agente]]: instrução"); return; }
+    if (!squad.steps.length) { new Notice(t("notice.noSteps")); return; }
     await this.runSquad(squad);
   }
 
@@ -209,7 +211,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     for (let i = 0; i < squad.steps.length; i++) {
       const step = squad.steps[i];
       const agent = this.resolveAgentRef(step.agentRef);
-      if (!agent) { new Notice(`Agente "${step.agentRef}" (passo ${i + 1}) não encontrado.`); return; }
+      if (!agent) { new Notice(t("notice.agentNotFound", { ref: step.agentRef, n: i + 1 })); return; }
 
       let approved = false;
       while (!approved) {
@@ -222,7 +224,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         if (out == null) return; // error/timeout already surfaced
 
         const decision = await new StepApprovalModal(this.app, i + 1, displayName(agent), out.trim()).openAndWait();
-        if (decision.action === "cancel") { new Notice("Squad cancelado."); return; }
+        if (decision.action === "cancel") { new Notice(t("notice.squadCancelled")); return; }
         if (decision.action === "redo") continue;
         prev = decision.text;
         results.push({ agent: displayName(agent), instruction: step.instruction, output: decision.text });
@@ -239,17 +241,17 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const path = (folder ? `${folder}/` : "") + `Squad ${safe} ${now.getTime()}.md`;
     const file = await this.app.vault.create(path, buildSquadRun(squad.name, results, now));
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
-    new Notice(`Squad "${squad.name}" concluído — ${results.length} passos.`);
+    new Notice(t("notice.squadDone", { name: squad.name, count: results.length }));
   }
 
   // #6 — multi-agent brainstorm: selected agents discuss a topic in turns (auto), then a facilitator synthesizes.
   private async runBrainstorm() {
     const all = this.registry.all();
-    if (all.length < 2) { new Notice("Crie pelo menos 2 agentes para um brainstorm."); return; }
+    if (all.length < 2) { new Notice(t("notice.needTwoAgents")); return; }
     const setup = await new BrainstormModal(this.app, all.map((a) => ({ name: a.name, label: displayName(a) }))).openAndWait();
     if (!setup) return;
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
-    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return; }
+    if (!cfg) { new Notice(t("notice.noProvider")); return; }
 
     const agents = setup.agentNames.map((n) => this.registry.get(n)).filter((a): a is Agent => !!a);
     const progress = new BrainstormProgressModal(this.app, setup.topic);
@@ -311,7 +313,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     if (!transcript.length) {
       progress.status("Nada a salvar — nenhuma fala foi gerada.");
-      new Notice("Brainstorm sem falas — tente um provider mais rápido (Groq/DeepSeek).");
+      new Notice(t("notice.brainstormNoTurns"));
       return;
     }
 
@@ -323,10 +325,10 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const path = (folder ? `${folder}/` : "") + `Brainstorm ${safe} ${Date.now()}.md`;
     const note = buildBrainstormNote(setup.topic, transcript, synthesis, agents.map((a) => baseName(a.filePath)), new Date());
     const file = await this.app.vault.create(path, note);
-    const verb = progress.stopped ? "parado" : "concluído";
+    const verb = progress.stopped ? t("notice.verbStopped") : t("notice.verbDone");
     progress.status(`✅ ${progress.stopped ? "Parado" : "Concluído"} — ${transcript.length} falas.`);
     progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file as TFile));
-    new Notice(`Brainstorm "${setup.topic}" ${verb} — ${transcript.length} falas.`);
+    new Notice(t("notice.brainstormDone", { topic: setup.topic, verb, count: transcript.length }));
   }
 
   // Provider for a call: the light/cheap one (brainstorm/squad/routing) when set, else the active one.
@@ -339,7 +341,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
   // Low-level single call to an agent (with its vault context + optional delegation directive).
   private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number, lean = false, light = false): Promise<string | null> {
     const cfg = this.cfgFor(light);
-    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
+    if (!cfg) { new Notice(t("notice.noProvider")); return null; }
     // lean mode (brainstorm or global Economy): keep the agent's own connections/mentions but skip the
     // heavy context-folder + vault auto-consult so each call stays small (fewer tokens → fewer rate-limits).
     const slim = lean || this.data.economyMode;
@@ -433,7 +435,10 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const via = result.via ? `> 🤝 *${displayName(agent)} consultou [[${baseName(result.via.filePath)}]]:*\n>\n` : "";
     const quoted = (result.text || "(sem resposta)").split("\n").map((l) => `> ${l}`).join("\n");
     write(`${via}${quoted}`);
-    new Notice(`${displayName(agent)} respondeu${result.via ? ` (via ${displayName(result.via)})` : ""}.`);
+    new Notice(t("notice.agentReplied", {
+      agent: displayName(agent),
+      via: result.via ? t("notice.via", { name: displayName(result.via) }) : "",
+    }));
   }
 
   // Agência: o agente propõe ações de escrita; cada uma passa por aprovação; executa e resume inline.
@@ -479,7 +484,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     }
     this.office?.setActivity(agent.name, "idle");
     write(buildAgencyReport(displayName(agent), results));
-    new Notice(`${displayName(agent)} agiu no cofre — ${results.length} ação(ões).`);
+    new Notice(t("notice.actedOnVault", { agent: displayName(agent), count: results.length }));
   }
 
   // Executa uma ação aprovada. Edit em path inexistente → cria. Anexa rodapé de proveniência.
@@ -527,7 +532,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     if (reply == null) return;
 
     const spec = parseCanvasSpec(reply);
-    if (!spec) { new Notice("O agente não retornou um mapa válido — tente novamente."); return; }
+    if (!spec) { new Notice(t("notice.noCanvasMap")); return; }
 
     const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
     if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
@@ -539,7 +544,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     const file = await this.app.vault.create(path, buildCanvas(spec));
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
-    new Notice(`Canvas gerado por ${displayName(parsed.agent)}.`);
+    new Notice(t("notice.canvasGenerated", { agent: displayName(parsed.agent) }));
   }
 
   // Epic D / Obsidian-native: generate a [[link]] from one agent to another agent or note.
@@ -579,9 +584,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
   // Epic B — "IA cria o agente": describe it, an architect generates the full persona note.
   private async generateAgentWithAI(description: string) {
     const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
-    if (!cfg) { new Notice("Configure um provider ativo nas settings."); return; }
+    if (!cfg) { new Notice(t("notice.noProvider")); return; }
 
-    const notice = new Notice("Arquiteto criando o agente…", 0);
+    const notice = new Notice(t("notice.architectCreating"), 0);
     const msgs: ChatMessage[] = [{ role: "user", content: description }];
     let reply = "";
     try {
@@ -594,7 +599,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     notice.hide();
 
     const note = extractAgentNote(reply);
-    if (!note) { new Notice("A IA não retornou uma nota de agente válida — tente de novo."); return; }
+    if (!note) { new Notice(t("notice.noAgentNote")); return; }
 
     const rawName = parseNameFromNote(note) || description.slice(0, 30);
     const safe = rawName.replace(/[\\/:*?"<>|]/g, "-").trim() || "agente";
@@ -608,18 +613,18 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const file = await this.app.vault.create(path, note);
     await this.registry.load();
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
-    new Notice(`Agente criado pela IA: ${safe}`);
+    new Notice(t("notice.agentCreatedAI", { name: safe }));
   }
 
   private async createAgent(o: NewAgentOpts) {
     const folder = (this.data.agentsFolder ?? "").replace(/\/+$/, "").trim();
     const safe = o.name.trim().replace(/[\\/:*?"<>|]/g, "-");
-    if (!safe) { new Notice("Nome inválido."); return; }
+    if (!safe) { new Notice(t("notice.invalidName")); return; }
     if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
       try { await this.app.vault.createFolder(folder); } catch { /* exists */ }
     }
     const path = folder ? `${folder}/${safe}.md` : `${safe}.md`;
-    if (this.app.vault.getAbstractFileByPath(path)) { new Notice("Já existe um agente com esse nome."); return; }
+    if (this.app.vault.getAbstractFileByPath(path)) { new Notice(t("notice.agentExists")); return; }
 
     const roomSlug = (o.room || "geral").trim().toLowerCase().replace(/\s+/g, "-") || "geral";
     const title = o.title.trim() || safe;
@@ -682,7 +687,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const file = await this.app.vault.create(path, fm.concat(body).join("\n"));
     await this.registry.load();
     await this.app.workspace.getLeaf(true).openFile(file as TFile);
-    new Notice(`Agente criado: ${safe}`);
+    new Notice(t("notice.agentCreated", { name: safe }));
   }
 
   private async openChatFor(agentName: string) {
@@ -697,7 +702,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   private async crystallize(agent: Agent, session: ChatSession) {
-    if (!session.messages.length) { new Notice("Nada para cristalizar ainda."); return; }
+    if (!session.messages.length) { new Notice(t("notice.nothingToCrystallize")); return; }
     const now = new Date();
     const md = buildConversationNote(agent, session.messages, now);
     const safe = agent.name.replace(/[\\/:*?"<>|]/g, "-");
@@ -708,7 +713,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const fileName = `Conversa ${safe} ${now.toISOString().slice(0, 10)} ${now.getTime()}.md`;
     const path = folder ? `${folder}/${fileName}` : fileName;
     await this.app.vault.create(path, md);
-    new Notice(`Cristalizado: ${path}`);
+    new Notice(t("notice.crystallized", { path }));
   }
 
   onunload() {
