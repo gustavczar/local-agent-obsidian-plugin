@@ -71,7 +71,7 @@
   inset: 0;
   pointer-events: none;
   overflow: visible;
-  z-index: 1;
+  z-index: 50; /* above room panels/cards so connection lines are visible (not hidden behind) */
 }
 .lao-link { stroke-width: 1.4; fill: none; }
 .lao-link.faint { stroke: var(--text-faint); opacity: .25; }
