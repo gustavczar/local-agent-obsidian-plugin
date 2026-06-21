@@ -43,7 +43,7 @@ export function stripTrailingProvenance(text: string): string {
   return text.replace(PROV_RE, "");
 }
 
-const MEMORY_HEAD_RE = /^#{1,6}\s*(?:🧠\s*)?Mem[óo]ria\b.*$/im;
+const MEMORY_HEAD_RE = /^#{1,6}\s*(?:🧠\s*)?(?:Mem[óo]ria|Memory)\b.*$/im;
 const CONEXOES_HEAD_RE = /^#{1,6}\s*(?:🔗\s*)?(?:Conex(?:ões|oes)|Connections)\b.*$/im;
 
 /**
