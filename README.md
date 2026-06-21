@@ -63,8 +63,6 @@ The whole interface is bilingual and **auto-detects your Obsidian language**. Sw
 
 ## 📸 Screenshots
 
-> Drop these images in `docs/` and they'll render here.
-
 | The office | Approval (with diff) |
 |---|---|
 | ![office](docs/office.png) | ![approval](docs/approval.png) |
