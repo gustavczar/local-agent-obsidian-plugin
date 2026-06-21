@@ -223,35 +223,44 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     const transcript: Turn[] = [];
     let prevName: string | null = null;
-    outer:
-    for (let r = 0; r < setup.rounds; r++) {
-      for (const agent of agents) {
-        if (progress.stopped) break outer;
-        this.office?.setActivity(agent.name, "working");
-        if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name);
-        progress.status(`💭 ${displayName(agent)} pensando…`);
-        // Race the turn against the Stop signal so Parar/closing interrupts immediately,
-        // even while a slow provider call is still pending (the abandoned call is discarded).
-        const reply = await Promise.race([
-          this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 45000),
-          progress.whenStopped().then(() => null),
-        ]);
-        this.office?.setActivity(agent.name, "idle");
-        if (progress.stopped) break outer;
-        if (reply == null || !reply.trim()) {
-          progress.status(`⚠️ ${displayName(agent)} não respondeu a tempo (provider lento/rate-limit) — pulei.`);
-          await sleep(800);
-          continue;
+    try {
+      outer:
+      for (let r = 0; r < setup.rounds; r++) {
+        for (const agent of agents) {
+          if (progress.stopped) break outer;
+          // Each turn is isolated: an exception (e.g. a visual glitch) must never kill the whole run.
+          try {
+            this.office?.setActivity(agent.name, "working");
+            try { if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name); } catch { /* visual only */ }
+            progress.status(`💭 ${displayName(agent)} pensando…`);
+            // Race the turn against the Stop signal so Parar/closing interrupts immediately,
+            // even while a slow provider call is still pending (the abandoned call is discarded).
+            const reply = await Promise.race([
+              this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 30000),
+              progress.whenStopped().then(() => null),
+            ]);
+            if (progress.stopped) break outer;
+            if (reply == null || !reply.trim()) {
+              progress.status(`⚠️ ${displayName(agent)} não respondeu (provider lento/rate-limit) — pulei.`);
+              await sleep(600);
+              continue;
+            }
+            transcript.push({ agent: baseName(agent.filePath), text: reply.trim() });
+            progress.addTurn(displayName(agent), reply.trim());
+            prevName = agent.name;
+            await sleep(700);
+          } catch (e) {
+            console.error("[brainstorm] turn error", e);
+            progress.status(`⚠️ Erro no turno de ${displayName(agent)}: ${(e as Error).message} — pulei.`);
+          } finally {
+            this.office?.setActivity(agent.name, "idle");
+          }
         }
-        transcript.push({ agent: baseName(agent.filePath), text: reply.trim() });
-        progress.addTurn(displayName(agent), reply.trim());
-        prevName = agent.name;
-        await sleep(900);
       }
+    } finally {
+      // Always clear office activity, even if something above threw or was stopped.
+      for (const a of agents) this.office?.setActivity(a.name, "idle");
     }
-
-    // Clear any lingering office activity (e.g. after Stop while a card was working).
-    for (const a of agents) this.office?.setActivity(a.name, "idle");
 
     let synthesis = "";
     if (!progress.stopped && transcript.length) {
