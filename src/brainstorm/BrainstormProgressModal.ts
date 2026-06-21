@@ -1,18 +1,35 @@
 import { App, Modal } from "obsidian";
 
-/** Live view of a running brainstorm: turns stream in; a Stop button sets the cancel flag. */
+/** Live view of a running brainstorm: turns stream in; Stop (or closing) cancels immediately. */
 export class BrainstormProgressModal extends Modal {
   stopped = false;
   private log!: HTMLElement;
+  private stopWaiters: (() => void)[] = [];
 
   constructor(app: App, private topic: string) { super(app); }
+
+  /** Resolves as soon as the user stops (button) or closes the modal. */
+  whenStopped(): Promise<void> {
+    return new Promise((res) => { if (this.stopped) res(); else this.stopWaiters.push(res); });
+  }
+
+  private triggerStop() {
+    if (this.stopped) return;
+    this.stopped = true;
+    const waiters = this.stopWaiters;
+    this.stopWaiters = [];
+    for (const w of waiters) w();
+  }
 
   onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: `🧠 Brainstorm: ${this.topic}` });
     this.log = contentEl.createDiv({ cls: "lao-bs-log" });
     const bar = contentEl.createDiv({ cls: "lao-step-actions" });
-    bar.createEl("button", { text: "⏹ Parar" }).addEventListener("click", () => { this.stopped = true; });
+    bar.createEl("button", { text: "⏹ Parar" }).addEventListener("click", () => {
+      this.status("⏹ Parando…");
+      this.triggerStop();
+    });
   }
 
   addTurn(agent: string, text: string) {
@@ -33,5 +50,5 @@ export class BrainstormProgressModal extends Modal {
     bar.createEl("button", { text: "Fechar" }).addEventListener("click", () => this.close());
   }
 
-  onClose() { this.stopped = true; }
+  onClose() { this.triggerStop(); }
 }

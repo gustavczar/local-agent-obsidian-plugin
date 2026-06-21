@@ -230,8 +230,14 @@ export default class LocalAgentOfficePlugin extends Plugin {
         this.office?.setActivity(agent.name, "working");
         if (prevName && prevName !== agent.name) this.office?.flashDelegation(prevName, agent.name);
         progress.status(`💭 ${displayName(agent)} pensando…`);
-        const reply = await this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 45000);
+        // Race the turn against the Stop signal so Parar/closing interrupts immediately,
+        // even while a slow provider call is still pending (the abandoned call is discarded).
+        const reply = await Promise.race([
+          this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 45000),
+          progress.whenStopped().then(() => null),
+        ]);
         this.office?.setActivity(agent.name, "idle");
+        if (progress.stopped) break outer;
         if (reply == null || !reply.trim()) {
           progress.status(`⚠️ ${displayName(agent)} não respondeu a tempo (provider lento/rate-limit) — pulei.`);
           await sleep(800);
@@ -240,20 +246,30 @@ export default class LocalAgentOfficePlugin extends Plugin {
         transcript.push({ agent: baseName(agent.filePath), text: reply.trim() });
         progress.addTurn(displayName(agent), reply.trim());
         prevName = agent.name;
-        if (progress.stopped) break outer;
         await sleep(900);
       }
     }
 
+    // Clear any lingering office activity (e.g. after Stop while a card was working).
+    for (const a of agents) this.office?.setActivity(a.name, "idle");
+
     let synthesis = "";
-    if (transcript.length) {
+    if (!progress.stopped && transcript.length) {
       progress.status("🧩 Facilitador sintetizando…");
       try {
         for await (const t of makeAdapter(cfg).stream(
           [{ role: "user", content: buildFacilitatorPrompt(setup.topic, transcript) }],
-          { system: FACILITATOR_SYSTEM },
+          { system: FACILITATOR_SYSTEM, timeoutMs: 45000 },
         )) synthesis += t;
       } catch (e) { progress.status(`⚠️ Síntese falhou: ${(e as Error).message}`); }
+    } else if (progress.stopped) {
+      progress.status("⏹ Parado — salvando o que já temos (sem síntese).");
+    }
+
+    if (!transcript.length) {
+      progress.status("Nada a salvar — nenhuma fala foi gerada.");
+      new Notice("Brainstorm sem falas — tente um provider mais rápido (Groq/DeepSeek).");
+      return;
     }
 
     const folder = (this.data.conversationsFolder ?? "").replace(/\/+$/, "").trim();
@@ -264,9 +280,10 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const path = (folder ? `${folder}/` : "") + `Brainstorm ${safe} ${Date.now()}.md`;
     const note = buildBrainstormNote(setup.topic, transcript, synthesis, agents.map((a) => baseName(a.filePath)), new Date());
     const file = await this.app.vault.create(path, note);
-    progress.status(`✅ Concluído — ${transcript.length} falas.`);
+    const verb = progress.stopped ? "parado" : "concluído";
+    progress.status(`✅ ${progress.stopped ? "Parado" : "Concluído"} — ${transcript.length} falas.`);
     progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file as TFile));
-    new Notice(`Brainstorm "${setup.topic}" concluído.`);
+    new Notice(`Brainstorm "${setup.topic}" ${verb} — ${transcript.length} falas.`);
   }
 
   // Low-level single call to an agent (with its vault context + optional delegation directive).
