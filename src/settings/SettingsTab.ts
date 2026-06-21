@@ -89,6 +89,28 @@ export class SettingsTab extends PluginSettingTab {
       .addDropdown((d) => { for (const p of data.providers) d.addOption(p.id, p.id); d.setValue(data.activeProviderId)
         .onChange(async (v) => { data.activeProviderId = v; await this.plugin.persist(); }); });
 
+    new Setting(containerEl).setName("Economia de tokens").setHeading();
+
+    new Setting(containerEl)
+      .setName("Modo economia")
+      .setDesc("Sempre usa contexto enxuto (pula varredura do cofre por chamada). Reduz tokens e rate-limits, com menos contexto.")
+      .addToggle((t) => t.setValue(data.economyMode).onChange(async (v) => { data.economyMode = v; await this.plugin.persist(); }));
+
+    new Setting(containerEl)
+      .setName("Teto de tokens por resposta")
+      .setDesc("Limite de tokens na resposta do modelo (0 = padrão do provider). Ex.: 1024 para respostas curtas e baratas.")
+      .addText((t) => t.setPlaceholder("0").setValue(String(data.maxTokens))
+        .onChange(async (v) => { data.maxTokens = Math.max(0, Number(v) || 0); await this.plugin.persist(); }));
+
+    new Setting(containerEl)
+      .setName("Provider leve (brainstorm/squad/roteamento)")
+      .setDesc("Modelo rápido/barato para tarefas multi-chamada. Vazio = usa o provider ativo. Dica: um modelo pequeno (ex.: llama-3.1-8b-instant) evita rate-limit no brainstorm.")
+      .addDropdown((d) => {
+        d.addOption("", "(usar o ativo)");
+        for (const p of data.providers) d.addOption(p.id, p.id);
+        d.setValue(data.lightProviderId).onChange(async (v) => { data.lightProviderId = v; await this.plugin.persist(); });
+      });
+
     new Setting(containerEl).setDesc("⚠️ As chaves ficam em data.json dentro do vault. Não inclua esse arquivo em backups públicos.")
       .addButton((b) => b.setButtonText("Recarregar agentes").onClick(async () => { await this.plugin.registry.load(); new Notice("Agentes recarregados"); }));
   }

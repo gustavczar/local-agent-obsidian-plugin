@@ -13,6 +13,16 @@ describe("OpenAICompatibleAdapter", () => {
     expect(await collect(a.stream([{ role: "user", content: "hi" }], { system: "sys" }))).toBe("Hello");
   });
 
+  it("includes max_tokens in the body only when set", async () => {
+    let body: any = {};
+    obsidianMock.requestUrl = async (req: any) => { body = JSON.parse(req.body); return { status: 200, json: { choices: [{ message: { content: "ok" } }] }, text: "" }; };
+    const a = new OpenAICompatibleAdapter({ id: "x", kind: "openai-compat", model: "m", apiKey: "k", baseURL: "https://api.x.com/v1" });
+    await collect(a.stream([{ role: "user", content: "hi" }], { system: "s" }));
+    expect(body.max_tokens).toBeUndefined();
+    await collect(a.stream([{ role: "user", content: "hi" }], { system: "s", maxTokens: 1024 }));
+    expect(body.max_tokens).toBe(1024);
+  });
+
   it("throws on non-2xx with body", async () => {
     obsidianMock.requestUrl = async () => ({ status: 401, json: { error: { message: "nope" } }, text: "" });
     const a = new OpenAICompatibleAdapter({ id: "x", kind: "openai-compat", model: "m", apiKey: "k", baseURL: "https://api.x.com/v1" });

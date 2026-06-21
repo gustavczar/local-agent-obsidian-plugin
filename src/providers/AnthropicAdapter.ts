@@ -18,7 +18,7 @@ export class AnthropicAdapter implements ProviderAdapter {
       },
       body: JSON.stringify({
         model: this.cfg.model,
-        max_tokens: 4096,
+        max_tokens: opts.maxTokens && opts.maxTokens > 0 ? opts.maxTokens : 4096,
         system: opts.system,
         messages,
       }),

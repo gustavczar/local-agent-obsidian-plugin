@@ -18,4 +18,15 @@ describe("PluginStore.withDefaults", () => {
     expect(withDefaults(null).agencyFolder).toBe("");
     expect(withDefaults({ agencyFolder: "X" } as any).agencyFolder).toBe("X");
   });
+
+  it("defaults the token-economy fields", () => {
+    const d = withDefaults(null);
+    expect(d.economyMode).toBe(false);
+    expect(d.maxTokens).toBe(0);
+    expect(d.lightProviderId).toBe("");
+    const s = withDefaults({ economyMode: true, maxTokens: 1024, lightProviderId: "groq" } as any);
+    expect(s.economyMode).toBe(true);
+    expect(s.maxTokens).toBe(1024);
+    expect(s.lightProviderId).toBe("groq");
+  });
 });

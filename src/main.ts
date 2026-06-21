@@ -183,7 +183,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         const msg = prev
           ? `${step.instruction}\n\n--- Resultado do passo anterior (use como base) ---\n${prev}`
           : step.instruction;
-        const out = await this.rawAgentCall(agent, msg, [], false, extractWikilinks(step.instruction));
+        const out = await this.rawAgentCall(agent, msg, [], false, extractWikilinks(step.instruction), undefined, false, true);
         this.office?.setActivity(agent.name, "idle");
         if (out == null) return; // error/timeout already surfaced
 
@@ -236,7 +236,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
             // Race the turn against the Stop signal so Parar/closing interrupts immediately,
             // even while a slow provider call is still pending (the abandoned call is discarded).
             const reply = await Promise.race([
-              this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 30000, true),
+              this.rawAgentCall(agent, buildBrainstormTurnPrompt(setup.topic, transcript, displayName(agent)), [], false, [], 30000, true, true),
               progress.whenStopped().then(() => null),
             ]);
             if (progress.stopped) break outer;
@@ -266,9 +266,9 @@ export default class LocalAgentOfficePlugin extends Plugin {
     if (!progress.stopped && transcript.length) {
       progress.status("🧩 Facilitador sintetizando…");
       try {
-        for await (const t of makeAdapter(cfg).stream(
+        for await (const t of makeAdapter(this.cfgFor(true) ?? cfg).stream(
           [{ role: "user", content: buildFacilitatorPrompt(setup.topic, transcript) }],
-          { system: FACILITATOR_SYSTEM, timeoutMs: 45000 },
+          { system: FACILITATOR_SYSTEM, timeoutMs: 45000, maxTokens: this.data.maxTokens },
         )) synthesis += t;
       } catch (e) { progress.status(`⚠️ Síntese falhou: ${(e as Error).message}`); }
     } else if (progress.stopped) {
@@ -295,25 +295,33 @@ export default class LocalAgentOfficePlugin extends Plugin {
     new Notice(`Brainstorm "${setup.topic}" ${verb} — ${transcript.length} falas.`);
   }
 
+  // Provider for a call: the light/cheap one (brainstorm/squad/routing) when set, else the active one.
+  private cfgFor(light: boolean) {
+    const id = light && this.data.lightProviderId ? this.data.lightProviderId : this.data.activeProviderId;
+    return this.data.providers.find((p) => p.id === id)
+      ?? this.data.providers.find((p) => p.id === this.data.activeProviderId);
+  }
+
   // Low-level single call to an agent (with its vault context + optional delegation directive).
-  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number, lean = false): Promise<string | null> {
-    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+  private async rawAgentCall(agent: Agent, message: string, delegates: string[], agency = false, mentions: string[] = [], timeoutMs?: number, lean = false, light = false): Promise<string | null> {
+    const cfg = this.cfgFor(light);
     if (!cfg) { new Notice("Configure um provider ativo nas settings."); return null; }
-    // lean mode (brainstorm): keep the agent's own connections/mentions but skip the heavy
-    // context-folder + vault auto-consult so each turn stays small (fewer tokens → fewer rate-limits).
-    const notes = lean
+    // lean mode (brainstorm or global Economy): keep the agent's own connections/mentions but skip the
+    // heavy context-folder + vault auto-consult so each call stays small (fewer tokens → fewer rate-limits).
+    const slim = lean || this.data.economyMode;
+    const notes = slim
       ? await resolveNotes(this.app, agent, mentions, [], message, false)
       : await resolveNotes(this.app, agent, mentions, this.data.contextFolders, message, this.data.autoConsultVault);
     const { system, messages } = buildPrompt(agent, [{ role: "user", content: message }], notes, delegates, agency);
     let reply = "";
-    try { for await (const t of makeAdapter(cfg).stream(messages, { system, timeoutMs })) reply += t; }
+    try { for await (const t of makeAdapter(cfg).stream(messages, { system, timeoutMs, maxTokens: this.data.maxTokens })) reply += t; }
     catch (e) { new Notice(`⚠️ ${(e as Error).message}`); return null; }
     return reply;
   }
 
   // Deterministic router: a short classification call picks the best-fit agent for the question.
   private async routePick(agent: Agent, question: string, candidates: Agent[]): Promise<Agent | null> {
-    const cfg = this.data.providers.find((p) => p.id === this.data.activeProviderId);
+    const cfg = this.cfgFor(true);
     if (!cfg) return null;
     const roster = candidates.map((c) => `- ${displayName(c)} — ${roleText(c) || c.room}`).join("\n");
     const system = "Você é um roteador que distribui perguntas para o agente certo de um time. Seja preciso.";
@@ -323,7 +331,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
       `Qual UM agente é o mais adequado para responder? Se "${displayName(agent)}" já for adequado, responda o nome dele. ` +
       `Responda APENAS com o nome exato do agente, nada mais.`;
     let reply = "";
-    try { for await (const t of makeAdapter(cfg).stream([{ role: "user", content: msg }], { system })) reply += t; }
+    try { for await (const t of makeAdapter(cfg).stream([{ role: "user", content: msg }], { system, timeoutMs: 30000, maxTokens: 20 })) reply += t; }
     catch { return null; }
     const name = reply.trim().toLowerCase().replace(/["'.\n]/g, "").trim();
     if (!name) return null;

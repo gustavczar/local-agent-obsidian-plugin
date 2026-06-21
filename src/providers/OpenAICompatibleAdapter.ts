@@ -20,6 +20,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       body: JSON.stringify({
         model: this.cfg.model,
         messages: [{ role: "system", content: opts.system }, ...messages],
+        ...(opts.maxTokens && opts.maxTokens > 0 ? { max_tokens: opts.maxTokens } : {}),
       }),
       throw: false,
     }), opts.timeoutMs);

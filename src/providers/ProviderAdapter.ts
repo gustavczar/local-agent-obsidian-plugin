@@ -2,7 +2,7 @@ import { ChatMessage, ProviderConfig } from "../types";
 import { AnthropicAdapter } from "./AnthropicAdapter";
 import { OpenAICompatibleAdapter } from "./OpenAICompatibleAdapter";
 
-export interface StreamOpts { system: string; signal?: AbortSignal; timeoutMs?: number; }
+export interface StreamOpts { system: string; signal?: AbortSignal; timeoutMs?: number; maxTokens?: number; }
 
 export interface ProviderAdapter {
   /** Yields text deltas as they arrive. */
