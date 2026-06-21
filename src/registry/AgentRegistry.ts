@@ -50,7 +50,7 @@ export class AgentRegistry {
   }
 }
 
-function stripFrontmatter(content: string): string {
+export function stripFrontmatter(content: string): string {
   if (content.startsWith("---")) {
     const end = content.indexOf("\n---", 3);
     if (end !== -1) return content.slice(content.indexOf("\n", end + 1) + 1);

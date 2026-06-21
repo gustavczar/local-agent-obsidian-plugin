@@ -1,7 +1,8 @@
 import { Plugin, WorkspaceLeaf, Notice, TFile, Editor } from "obsidian";
 import { displayName, baseName, roleText } from "./office/avatar";
 import { withDefaults, PersistedData } from "./store/PluginStore";
-import { AgentRegistry } from "./registry/AgentRegistry";
+import { AgentRegistry, stripFrontmatter } from "./registry/AgentRegistry";
+import { validateAgent } from "./registry/validateAgent";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
 import { ChatView, CHAT_VIEW } from "./chat/ChatView";
 import { ChatSession } from "./chat/ChatSession";
@@ -88,10 +89,43 @@ export default class LocalAgentOfficePlugin extends Plugin {
       name: "Brainstorm multi-agente",
       callback: () => void this.runBrainstorm(),
     });
+    this.addCommand({
+      id: "validate-agents",
+      name: "Validar agentes (frontmatter/estrutura)",
+      callback: () => void this.validateAgents(),
+    });
     this.addSettingTab(new SettingsTab(this.app, this));
 
     await this.registry.load();
     this.registry.registerVaultEvents();
+  }
+
+  private async validateAgents() {
+    const agents = this.registry.all();
+    if (!agents.length) { new Notice("Nenhum agente na pasta configurada."); return; }
+    let errors = 0, warns = 0;
+    const lines: string[] = [];
+    for (const a of agents) {
+      const file = this.app.vault.getAbstractFileByPath(a.filePath);
+      if (!(file instanceof TFile)) continue;
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
+      const body = stripFrontmatter(await this.app.vault.read(file));
+      const issues = validateAgent(fm, body, a.filePath);
+      if (!issues.length) continue;
+      lines.push(`${displayName(a)} (${a.filePath}):`);
+      for (const i of issues) {
+        if (i.level === "error") errors++; else warns++;
+        lines.push(`  ${i.level === "error" ? "❌" : "⚠️"} ${i.message}`);
+      }
+    }
+    if (!lines.length) { new Notice(`✅ ${agents.length} agente(s) — tudo válido.`); return; }
+    console.log("[Local Agent Office] Validação de agentes:\n" + lines.join("\n"));
+    new Notice(
+      `${agents.length} agente(s) · ${errors} erro(s) · ${warns} aviso(s).\n` +
+      lines.slice(0, 12).join("\n") +
+      (lines.length > 12 ? "\n… (resto no console — Ctrl+Shift+I)" : ""),
+      0,
+    );
   }
 
   async persist() { await this.saveData(this.data); }
