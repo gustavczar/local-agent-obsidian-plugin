@@ -49,10 +49,11 @@ export class ActionApprovalModal extends Modal {
     const pathLabel = tool === "append_memory" ? tr("aa.pathMemory", { path: this.finalPath }) : tr("aa.path", { path: this.finalPath });
     contentEl.createEl("p", { cls: "setting-item-description", text: pathLabel });
 
-    if (tool === "edit_note" && this.currentContent != null) {
-      const newWhole = (this.act as any).mode === "replace"
-        ? this.act.content
-        : this.currentContent + "\n\n" + this.act.content;
+    const act = this.act;
+    if (act.tool === "edit_note" && this.currentContent != null) {
+      const newWhole = act.mode === "replace"
+        ? act.content
+        : this.currentContent + "\n\n" + act.content;
       const diff = contentEl.createDiv({ cls: "lao-diff" });
       for (const seg of diffLines(this.currentContent, newWhole)) {
         const row = diff.createDiv({ cls: `lao-diff-row is-${seg.type}` });

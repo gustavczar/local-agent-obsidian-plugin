@@ -6,6 +6,7 @@ export class FuzzySuggestModal<T> {}
 export class Notice { constructor(public message: string) {} }
 export class TFile { constructor(public path = "") {} }
 export function parseYaml(_s: string): any { return {}; }
+export function getLanguage(): string { return "en"; }
 
 // requestUrl indirection so tests can override the implementation.
 export interface RequestUrlParam {

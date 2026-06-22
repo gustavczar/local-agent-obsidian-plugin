@@ -46,7 +46,7 @@ export class OfficeView extends ItemView {
     if (!card) return;
     card.toggleClass("working", state === "working");
     card.toggleClass("waiting", state === "waiting");
-    const dot = card.querySelector(".lao-status") as HTMLElement | null;
+    const dot = card.querySelector<HTMLElement>(".lao-status");
     if (dot) { dot.toggleClass("working", state === "working"); dot.toggleClass("waiting", state === "waiting"); }
   }
 
@@ -62,9 +62,11 @@ export class OfficeView extends ItemView {
   }
 
   private openSettings() {
-    const setting = (this.app as any).setting;
-    setting?.open?.();
-    setting?.openTabById?.("local-agent-office");
+    const setting = (this.app as unknown as {
+      setting?: { open(): void; openTabById(id: string): void };
+    }).setting;
+    setting?.open();
+    setting?.openTabById("local-agent-office");
   }
 
   /** Right-click on a card: quick actions (chat, open agent note, connect, settings). */

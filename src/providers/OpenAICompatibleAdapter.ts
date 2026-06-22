@@ -29,7 +29,8 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       throw new Error(`Provider ${res.status}: ${providerErrorBody(res)}`);
     }
 
-    const text: string = res.json?.choices?.[0]?.message?.content ?? "";
+    const data = res.json as { choices?: { message?: { content?: string } }[] } | undefined;
+    const text = data?.choices?.[0]?.message?.content ?? "";
     if (text) yield text;
   }
 }

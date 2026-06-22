@@ -19,21 +19,22 @@ export const OPENAI_COMPAT_PRESETS: Record<string, string> = {
 };
 
 /** Extracts a short human-readable error message from a requestUrl response. */
-export function providerErrorBody(res: { json?: any; text?: string }): string {
-  const m = res?.json?.error?.message ?? res?.json?.message ?? res?.text ?? "";
-  return String(m).slice(0, 300);
+export function providerErrorBody(res: { json?: unknown; text?: string }): string {
+  const j = (res.json ?? {}) as { error?: { message?: unknown }; message?: unknown };
+  const m = j.error?.message ?? j.message ?? res.text ?? "";
+  return (typeof m === "string" ? m : "").slice(0, 300);
 }
 
 export const PROVIDER_TIMEOUT_MS = 90000;
 
 /** Rejects if the promise does not settle within `ms` — guards against a provider that hangs forever. */
 export async function withTimeout<T>(p: Promise<T>, ms = PROVIDER_TIMEOUT_MS): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
+  let timer = 0;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Tempo esgotado (${Math.round(ms / 1000)}s) — o provider não respondeu.`)), ms);
+    timer = window.setTimeout(() => reject(new Error(`Tempo esgotado (${Math.round(ms / 1000)}s) — o provider não respondeu.`)), ms);
   });
   try { return await Promise.race([p, timeout]); }
-  finally { clearTimeout(timer!); }
+  finally { window.clearTimeout(timer); }
 }
 
 export function makeAdapter(cfg: ProviderConfig): ProviderAdapter {

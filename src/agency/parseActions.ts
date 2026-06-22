@@ -16,19 +16,20 @@ function extractJsonObject(text: string): string | null {
   return null;
 }
 
-function toAction(raw: any): AgentAction | null {
+function toAction(raw: unknown): AgentAction | null {
   if (!raw || typeof raw !== "object") return null;
-  const content = typeof raw.content === "string" ? raw.content : "";
-  if (raw.tool === "append_memory") {
+  const r = raw as Record<string, unknown>;
+  const content = typeof r.content === "string" ? r.content : "";
+  if (r.tool === "append_memory") {
     return content ? { tool: "append_memory", content } : null;
   }
-  const path = typeof raw.path === "string" ? raw.path.trim() : "";
+  const path = typeof r.path === "string" ? r.path.trim() : "";
   if (!path) return null;
-  if (raw.tool === "create_note") {
+  if (r.tool === "create_note") {
     return content ? { tool: "create_note", path, content } : null;
   }
-  if (raw.tool === "edit_note") {
-    const mode = raw.mode === "replace" ? "replace" : "append";
+  if (r.tool === "edit_note") {
+    const mode = r.mode === "replace" ? "replace" : "append";
     return content ? { tool: "edit_note", path, mode, content } : null;
   }
   return null;
@@ -38,8 +39,10 @@ function toAction(raw: any): AgentAction | null {
 export function parseActions(reply: string): AgentAction[] | null {
   const json = extractJsonObject(reply);
   if (!json) return null;
-  let obj: any;
+  let obj: unknown;
   try { obj = JSON.parse(json); } catch { return null; }
-  if (!obj || !Array.isArray(obj.actions)) return null;
-  return obj.actions.map(toAction).filter((a: AgentAction | null): a is AgentAction => a !== null);
+  if (!obj || typeof obj !== "object") return null;
+  const actions = (obj as Record<string, unknown>).actions;
+  if (!Array.isArray(actions)) return null;
+  return actions.map(toAction).filter((a): a is AgentAction => a !== null);
 }

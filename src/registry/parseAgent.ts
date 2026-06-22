@@ -21,12 +21,13 @@ function baseName(filePath: string): string {
 }
 
 export function parseAgent(
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
   body: string,
   filePath: string,
 ): Agent {
-  const name = String(frontmatter.name ?? "").trim() || baseName(filePath);
-  const title = String(frontmatter.title ?? "").trim() || name;
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const name = str(frontmatter.name).trim() || baseName(filePath);
+  const title = str(frontmatter.title).trim() || name;
   const room = deriveRoom(frontmatter.tags);
 
   const connections: string[] = [];
@@ -36,9 +37,10 @@ export function parseAgent(
 
   const systemPrompt = body.replace(CONEXOES_RE, "").trim();
 
-  const icon = frontmatter.icon != null ? String(frontmatter.icon).trim() : undefined;
-  const accentRaw = frontmatter.accent ?? frontmatter.color;
-  const accent = accentRaw != null ? String(accentRaw).trim() : undefined;
+  const iconStr = str(frontmatter.icon).trim();
+  const icon = iconStr || undefined;
+  const accentStr = (str(frontmatter.accent) || str(frontmatter.color)).trim();
+  const accent = accentStr || undefined;
 
   return { name, title, systemPrompt, room, connections: [...new Set(connections)], filePath, icon, accent };
 }

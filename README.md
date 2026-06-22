@@ -77,14 +77,9 @@ The whole interface is bilingual and **auto-detects your Obsidian language**. Sw
 
 ## 📥 Install
 
-**Community store:** submission is pending Obsidian's review. Until then, install the beta in ~30 seconds with **BRAT**:
+**From Obsidian (recommended):** Settings → **Community plugins** → **Browse** → search **"Local Agent Office"** → Install → Enable. Or open it directly: [community.obsidian.md/plugins/local-agent-office](https://community.obsidian.md/plugins/local-agent-office).
 
-1. Install **BRAT** (`Obsidian42-BRAT`) from Community plugins and enable it.
-2. Run the command **BRAT: Add a beta plugin**.
-3. Paste: `gustavczar/local-agent-obsidian-plugin`
-4. Enable **Local Agent Office** in Settings → Community plugins.
-
-BRAT keeps it updated automatically as new releases ship.
+**Bleeding edge (BRAT):** install **BRAT** (`Obsidian42-BRAT`), run **BRAT: Add a beta plugin**, and paste `gustavczar/local-agent-obsidian-plugin` to track the latest release before it reaches the store.
 
 ---
 

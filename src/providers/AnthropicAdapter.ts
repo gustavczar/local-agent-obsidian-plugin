@@ -29,8 +29,9 @@ export class AnthropicAdapter implements ProviderAdapter {
       throw new Error(`Anthropic ${res.status}: ${providerErrorBody(res)}`);
     }
 
-    const text: string = (res.json?.content ?? [])
-      .map((b: any) => (b?.type === "text" ? b.text : ""))
+    const data = res.json as { content?: { type?: string; text?: string }[] } | undefined;
+    const text = (data?.content ?? [])
+      .map((b) => (b.type === "text" ? b.text ?? "" : ""))
       .join("");
     if (text) yield text;
   }

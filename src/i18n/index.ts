@@ -1,6 +1,7 @@
-// Minimal, dependency-free i18n. Default English (global launch); `auto` follows
-// Obsidian's UI language. Keys are stable; untranslated keys fall back to English,
-// then to the raw key — so a half-migrated UI degrades cleanly instead of breaking.
+// Minimal i18n. Default English (global launch); `auto` follows Obsidian's UI
+// language via getLanguage(). Keys are stable; untranslated keys fall back to
+// English, then to the raw key — so a half-migrated UI degrades cleanly.
+import { getLanguage as obsidianGetLanguage } from "obsidian";
 
 export type Lang = "en" | "pt";
 export type LangPref = "auto" | Lang;
@@ -384,7 +385,7 @@ let current: Lang = "en";
 
 export function detectLang(): Lang {
   try {
-    const l = (window.localStorage.getItem("language") || "").toLowerCase();
+    const l = (obsidianGetLanguage() || "").toLowerCase();
     return l.startsWith("pt") ? "pt" : "en";
   } catch {
     return "en";

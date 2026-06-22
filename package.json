@@ -7,14 +7,18 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck -p tsconfig.build.json && node esbuild.config.mjs production",
     "typecheck": "tsc -noEmit -skipLibCheck",
+    "lint": "eslint src",
     "test": "vitest run"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
     "esbuild": "^0.20.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "obsidian": "latest",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.61.1",
     "vitest": "^1.4.0"
   }
 }

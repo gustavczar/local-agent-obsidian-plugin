@@ -2,6 +2,7 @@ import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { OPENAI_COMPAT_PRESETS } from "../providers/ProviderAdapter";
 import type LocalAgentOfficePlugin from "../main";
 import { t as tr, setLanguage, LangPref } from "../i18n";
+import { ProviderKind } from "../types";
 
 export class SettingsTab extends PluginSettingTab {
   constructor(app: App, private plugin: LocalAgentOfficePlugin) { super(app, plugin); }
@@ -84,7 +85,7 @@ export class SettingsTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName(p.id || `provider ${i + 1}`)
         .addDropdown((d) => d.addOption("anthropic", "Anthropic").addOption("openai-compat", "OpenAI-compatible")
-          .setValue(p.kind).onChange(async (v) => { p.kind = v as any; await this.plugin.persist(); this.display(); }))
+          .setValue(p.kind).onChange(async (v) => { p.kind = v as ProviderKind; await this.plugin.persist(); this.display(); }))
         .addText((t) => t.setPlaceholder(tr("set.modelPh")).setValue(p.model).onChange(async (v) => { p.model = v; await this.plugin.persist(); }))
         .addText((t) => { t.setPlaceholder(tr("set.apiKeyPh")).setValue(p.apiKey ? "•••• SET" : "").onChange(async (v) => { p.apiKey = v; await this.plugin.persist(); }); t.inputEl.type = "password"; })
         .addExtraButton((b) => b.setIcon("trash").onClick(async () => { data.providers.splice(i, 1); await this.plugin.persist(); this.display(); }));

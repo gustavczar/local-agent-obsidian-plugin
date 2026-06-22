@@ -43,7 +43,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
   }
 
   async onload() {
-    this.data = withDefaults(await this.loadData());
+    this.data = withDefaults((await this.loadData()) as Partial<PersistedData> | null);
     setLanguage(this.data.language);
     this.registry = new AgentRegistry(this.app, this.data.agentsFolder);
 
@@ -51,7 +51,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
       leaf, this.registry,
       () => this.data.positions,
       (name, pos) => { this.data.positions[name] = pos; void this.persist(); },
-      (name) => this.openChatFor(name),
+      (name) => void this.openChatFor(name),
       () => this.openAddAgent(),
       (name) => this.connectAgent(name),
     ));
@@ -240,7 +240,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const safe = (squad.name.replace(/[\\/:*?"<>|]/g, "-").slice(0, 40).trim()) || "squad";
     const path = (folder ? `${folder}/` : "") + `Squad ${safe} ${now.getTime()}.md`;
     const file = await this.app.vault.create(path, buildSquadRun(squad.name, results, now));
-    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    await this.app.workspace.getLeaf(true).openFile(file);
     new Notice(t("notice.squadDone", { name: squad.name, count: results.length }));
   }
 
@@ -327,7 +327,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const file = await this.app.vault.create(path, note);
     const verb = progress.stopped ? t("notice.verbStopped") : t("notice.verbDone");
     progress.status(t("bs.finished", { verb: progress.stopped ? t("bs.verbStopped") : t("bs.verbDone"), count: transcript.length }));
-    progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file as TFile));
+    progress.finish(() => void this.app.workspace.getLeaf(true).openFile(file));
     new Notice(t("notice.brainstormDone", { topic: setup.topic, verb, count: transcript.length }));
   }
 
@@ -543,7 +543,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     if (this.app.vault.getAbstractFileByPath(path)) path = (folder ? `${folder}/` : "") + `${safe} ${Date.now()}.canvas`;
 
     const file = await this.app.vault.create(path, buildCanvas(spec));
-    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    await this.app.workspace.getLeaf(true).openFile(file);
     new Notice(t("notice.canvasGenerated", { agent: displayName(parsed.agent) }));
   }
 
@@ -562,12 +562,14 @@ export default class LocalAgentOfficePlugin extends Plugin {
       items.push({ label: f.basename, sublabel: t("ui.noteSub"), linktext: f.basename });
     }
 
-    new ConnectModal(this.app, items, async (it) => {
-      const file = this.app.vault.getAbstractFileByPath(source.filePath);
-      if (!(file instanceof TFile)) return;
-      await this.app.vault.process(file, (data) => addConnectionToBody(data, it.linktext));
-      await this.registry.load();
-      new Notice(`${displayName(source)} → [[${it.linktext}]]`);
+    new ConnectModal(this.app, items, (it) => {
+      void (async () => {
+        const file = this.app.vault.getAbstractFileByPath(source.filePath);
+        if (!(file instanceof TFile)) return;
+        await this.app.vault.process(file, (data) => addConnectionToBody(data, it.linktext));
+        await this.registry.load();
+        new Notice(`${displayName(source)} → [[${it.linktext}]]`);
+      })();
     }).open();
   }
 
@@ -612,7 +614,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     const file = await this.app.vault.create(path, note);
     await this.registry.load();
-    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    await this.app.workspace.getLeaf(true).openFile(file);
     new Notice(t("notice.agentCreatedAI", { name: safe }));
   }
 
@@ -686,7 +688,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
         ];
     const file = await this.app.vault.create(path, fm.concat(body).join("\n"));
     await this.registry.load();
-    await this.app.workspace.getLeaf(true).openFile(file as TFile);
+    await this.app.workspace.getLeaf(true).openFile(file);
     new Notice(t("notice.agentCreated", { name: safe }));
   }
 

@@ -8,21 +8,25 @@ export function parseCanvasSpec(reply: string): CanvasSpec | null {
   const end = raw.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return null;
 
-  let obj: any;
+  let obj: unknown;
   try { obj = JSON.parse(raw.slice(start, end + 1)); }
   catch { return null; }
+  if (!obj || typeof obj !== "object") return null;
 
-  if (!obj || !Array.isArray(obj.nodes)) return null;
-  const nodes = obj.nodes
-    .filter((n: any) => n && n.id != null && n.text != null)
-    .map((n: any) => ({ id: String(n.id), text: String(n.text) }));
+  const root = obj as Record<string, unknown>;
+  const rawNodes = Array.isArray(root.nodes) ? (root.nodes as unknown[]) : null;
+  if (!rawNodes) return null;
+  const nodes = rawNodes
+    .map((n) => (n && typeof n === "object" ? (n as Record<string, unknown>) : null))
+    .filter((n): n is Record<string, unknown> => n != null && n.id != null && n.text != null)
+    .map((n) => ({ id: String(n.id), text: String(n.text) }));
   if (!nodes.length) return null;
 
-  const edges = Array.isArray(obj.edges)
-    ? obj.edges
-        .filter((e: any) => e && e.from != null && e.to != null)
-        .map((e: any) => ({ from: String(e.from), to: String(e.to), ...(e.label != null ? { label: String(e.label) } : {}) }))
-    : [];
+  const rawEdges = Array.isArray(root.edges) ? (root.edges as unknown[]) : [];
+  const edges = rawEdges
+    .map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : null))
+    .filter((e): e is Record<string, unknown> => e != null && e.from != null && e.to != null)
+    .map((e) => ({ from: String(e.from), to: String(e.to), ...(typeof e.label === "string" ? { label: e.label } : {}) }));
 
   return { nodes, edges };
 }

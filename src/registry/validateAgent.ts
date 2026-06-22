@@ -16,12 +16,13 @@ const AGENT_TAG_RE = /#?agente\/[a-z0-9\-_]+/i;
  * Reuses parseAgent so the resolved name/room/connections never drift from runtime.
  */
 export function validateAgent(
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
   body: string,
   filePath: string,
 ): AgentIssue[] {
   const agent = parseAgent(frontmatter, body, filePath);
   const issues: AgentIssue[] = [];
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
   if (!agent.systemPrompt) {
     issues.push({
@@ -31,7 +32,7 @@ export function validateAgent(
     });
   }
 
-  if (!String(frontmatter.name ?? "").trim()) {
+  if (!str(frontmatter.name).trim()) {
     issues.push({
       level: "warn",
       code: "no_name",
@@ -47,7 +48,7 @@ export function validateAgent(
     });
   }
 
-  if (!String(frontmatter.title ?? "").trim()) {
+  if (!str(frontmatter.title).trim()) {
     issues.push({
       level: "warn",
       code: "no_title",

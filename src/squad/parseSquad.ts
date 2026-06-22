@@ -4,10 +4,11 @@ export interface Squad { name: string; steps: SquadStep[]; }
 // "1. [[agente]]: instrução"  (também aceita ) e - e travessão como separador)
 const STEP_RE = /^\s*\d+[.)]\s*\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]\s*[:：—-]\s*(.+)$/;
 
-export function isSquadFrontmatter(fm: Record<string, any> | undefined): boolean {
+export function isSquadFrontmatter(fm: Record<string, unknown> | undefined): boolean {
   if (!fm) return false;
-  if (fm.squad === true || String(fm.tipo ?? "").toLowerCase().includes("squad")) return true;
-  const tags = Array.isArray(fm.tags) ? fm.tags.map(String) : [];
+  const tipo = typeof fm.tipo === "string" ? fm.tipo : "";
+  if (fm.squad === true || tipo.toLowerCase().includes("squad")) return true;
+  const tags = Array.isArray(fm.tags) ? (fm.tags as unknown[]).map((x) => (typeof x === "string" ? x : "")) : [];
   return tags.some((t) => /#?squad/i.test(t));
 }
 

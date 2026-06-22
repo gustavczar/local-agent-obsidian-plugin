@@ -26,7 +26,7 @@ export async function resolveNotes(
 
   const linkpaths = [...new Set([...agent.connections, ...mentions])];
   for (const lp of linkpaths) {
-    const dest = (app.metadataCache as any).getFirstLinkpathDest(lp, agent.filePath);
+    const dest = app.metadataCache.getFirstLinkpathDest(lp, agent.filePath);
     if (!dest || seen.has(dest.path)) continue;
     seen.add(dest.path);
     out.push({ path: dest.path, content: await app.vault.read(dest) });
