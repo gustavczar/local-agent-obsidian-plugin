@@ -32,29 +32,29 @@ import { buildBrainstormNote } from "./brainstorm/buildBrainstormNote";
 import { ActionApprovalModal } from "./agency/ActionApprovalModal";
 import { buildAgencyReport, ActionResult } from "./agency/buildAgencyReport";
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 export default class LocalAgentOfficePlugin extends Plugin {
   data!: PersistedData;
   registry!: AgentRegistry;
-  private office: OfficeView | null = null;
+  private get office(): OfficeView | null {
+    const leaf = this.app.workspace.getLeavesOfType(OFFICE_VIEW)[0];
+    return leaf?.view instanceof OfficeView ? leaf.view : null;
+  }
 
   async onload() {
     this.data = withDefaults(await this.loadData());
     setLanguage(this.data.language);
     this.registry = new AgentRegistry(this.app, this.data.agentsFolder);
 
-    this.registerView(OFFICE_VIEW, (leaf) => {
-      this.office = new OfficeView(
-        leaf, this.registry,
-        () => this.data.positions,
-        (name, pos) => { this.data.positions[name] = pos; void this.persist(); },
-        (name) => this.openChatFor(name),
-        () => this.openAddAgent(),
-        (name) => this.connectAgent(name),
-      );
-      return this.office;
-    });
+    this.registerView(OFFICE_VIEW, (leaf) => new OfficeView(
+      leaf, this.registry,
+      () => this.data.positions,
+      (name, pos) => { this.data.positions[name] = pos; void this.persist(); },
+      (name) => this.openChatFor(name),
+      () => this.openAddAgent(),
+      (name) => this.connectAgent(name),
+    ));
 
     this.registerView(CHAT_VIEW, (leaf) => new ChatView(
       leaf,
@@ -696,7 +696,7 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const leaf: WorkspaceLeaf | null = this.app.workspace.getRightLeaf(false);
     if (!leaf) return;
     await leaf.setViewState({ type: CHAT_VIEW, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    await this.app.workspace.revealLeaf(leaf);
     const view = leaf.view as ChatView;
     view.setAgent(agent);
   }
@@ -714,10 +714,5 @@ export default class LocalAgentOfficePlugin extends Plugin {
     const path = folder ? `${folder}/${fileName}` : fileName;
     await this.app.vault.create(path, md);
     new Notice(t("notice.crystallized", { path }));
-  }
-
-  onunload() {
-    this.app.workspace.detachLeavesOfType(OFFICE_VIEW);
-    this.app.workspace.detachLeavesOfType(CHAT_VIEW);
   }
 }

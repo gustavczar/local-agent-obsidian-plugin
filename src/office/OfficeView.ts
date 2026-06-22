@@ -95,8 +95,7 @@ export class OfficeView extends ItemView {
     const rooms = new Set(agents.map((a) => a.room));
     bar.createSpan({ cls: "lao-count", text: tr("office.count", { agents: agents.length, rooms: rooms.size }) });
 
-    const spacer = bar.createDiv({ cls: "lao-spacer" });
-    spacer.style.flex = "1";
+    bar.createDiv({ cls: "lao-spacer" });
 
     const search = bar.createEl("input", { cls: "lao-search", attr: { type: "search", placeholder: tr("office.search") } });
     search.value = this.filter;

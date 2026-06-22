@@ -314,3 +314,5 @@
 .lao-diff-row { white-space:pre-wrap; }
 .lao-diff-row.is-add { background: rgba(29,158,117,.15); }
 .lao-diff-row.is-del { background: rgba(226,75,74,.15); }
+
+.lao-spacer { flex: 1; }
