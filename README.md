@@ -123,7 +123,7 @@ The whole interface is bilingual and **auto-detects your Obsidian language**. Sw
 | **Language** | UI language: Auto (follows Obsidian) / English / Português. |
 | **Agents folder** | Folder scanned for agent `.md` files. Every note in it becomes an agent. |
 | **Conversations folder** | Where "crystallized" chats are saved. |
-| **Agency output folder** | Default folder when an agent creates a note without an explicit path. |
+| **Agency output folder** | Default folder when an agent creates a note without an explicit path; empty uses the conversations folder (or the root). |
 | **Context folders** | Folders every agent consults for knowledge (up to 12 notes). |
 | **Auto-consult the vault** | With no context folders set, auto-fetch the most relevant notes per question. |
 | **Automatic routing (delegation)** | Routes a question to the best-suited agent before answering. |
