@@ -5,6 +5,8 @@ import { AgentRegistry, stripFrontmatter } from "./registry/AgentRegistry";
 import { validateAgent } from "./registry/validateAgent";
 import { t, setLanguage } from "./i18n";
 import { OfficeView, OFFICE_VIEW } from "./office/OfficeView";
+import { PhaserOfficeView, PHASER_OFFICE_VIEW } from "./office/PhaserOfficeView";
+import { RunStateSource } from "./office/RunStateSource";
 import { ChatView, CHAT_VIEW } from "./chat/ChatView";
 import { ChatSession } from "./chat/ChatSession";
 import { resolveNotes } from "./context/resolveNotes";
@@ -21,7 +23,7 @@ import { parseCanvasSpec } from "./canvas/parseCanvasSpec";
 import { parseSquad, Squad } from "./squad/parseSquad";
 import { buildSquadRun, SquadStepResult } from "./squad/buildSquadRun";
 import { StepApprovalModal } from "./squad/StepApprovalModal";
-import { Agent, ChatMessage, AgentAction } from "./types";
+import { Agent, ChatMessage, AgentAction, PhaserAgent, PhaserAgentStatus, SquadState } from "./types";
 import { parseActions } from "./agency/parseActions";
 import { resolveTargetPath, provenanceFooter, stripTrailingProvenance, addToMemory } from "./agency/agencyPrompt";
 import { extractWikilinks } from "./context/extractWikilinks";
@@ -64,8 +66,24 @@ export default class LocalAgentOfficePlugin extends Plugin {
       () => this.registry.all(),
     ));
 
+    // Phaser Office View - visual floor plan with animated avatars
+    this.registerView(PHASER_OFFICE_VIEW, (leaf) => {
+      const view = new PhaserOfficeView(
+        leaf, this.registry,
+        () => this.getSquadStateForPhaser(),
+        this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`,
+        (name) => void this.openChatFor(name),
+      );
+      this.phaserOffices.push(view);
+      view.onDispose = () => {
+        this.phaserOffices = this.phaserOffices.filter((v) => v !== view);
+      };
+      return view;
+    });
+
     this.addRibbonIcon("building-2", t("ribbon.openOffice"), () => void this.openOffice());
     this.addCommand({ id: "open-agent-office", name: t("cmd.openOffice"), callback: () => void this.openOffice() });
+    this.addCommand({ id: "open-phaser-office", name: "Open Agent Office (Phaser)", callback: () => void this.openPhaserOffice() });
     this.addCommand({
       id: "answer-inline-mention",
       name: t("cmd.answerMention"),
@@ -100,6 +118,46 @@ export default class LocalAgentOfficePlugin extends Plugin {
 
     await this.registry.load();
     this.registry.registerVaultEvents();
+    this.registry.onChange(() => this.warnAboutDuplicateAgents());
+    this.warnAboutDuplicateAgents();
+    this.startRunStateSource();
+  }
+
+  // A file whose frontmatter `name` is already taken never becomes an agent. Without
+  // this notice it simply never appears, with nothing anywhere saying why.
+  private warnedDuplicates = "";
+  private warnAboutDuplicateAgents() {
+    const dupes = this.registry.duplicates();
+    const signature = dupes.map((d) => d.ignored).join("|");
+    if (signature === this.warnedDuplicates) return;
+    this.warnedDuplicates = signature;
+    if (!dupes.length) return;
+
+    for (const d of dupes) {
+      new Notice(
+        `Agent "${d.name}" is declared twice.
+${d.ignored} was ignored — ${d.kept} already uses that name.
+Change its frontmatter "name" to show it.`,
+        10000,
+      );
+    }
+  }
+
+  onunload() {
+    this.runState?.stop();
+    this.runState = null;
+    this.phaserOffices = [];
+  }
+
+  /** Called by the settings tab when the watched folder or pinned squad changes. */
+  reloadRunStateSource() {
+    this.startRunStateSource();
+    for (const view of this.phaserOffices) view.updateAgents();
+  }
+
+  /** Squad folders currently visible to the source, for the settings dropdown. */
+  listLiveSquads(): string[] {
+    return this.runState?.listSquads() ?? [];
   }
 
   private async validateAgents() {
@@ -142,6 +200,60 @@ export default class LocalAgentOfficePlugin extends Plugin {
   private async openOffice() {
     const leaf = this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: OFFICE_VIEW, active: true });
+  }
+
+  // Live run state, when the user has pointed the plugin at a runner's output folder.
+  private runState: RunStateSource | null = null;
+  private liveState: SquadState | null = null;
+  private phaserOffices: PhaserOfficeView[] = [];
+
+  private startRunStateSource() {
+    this.runState?.stop();
+    this.runState = null;
+    this.liveState = null;
+
+    const root = (this.data.squadStateFolder ?? "").trim();
+    if (!root) return;   // opt-in: no path, no filesystem access at all
+
+    const src = new RunStateSource({ root });
+    src.onChange((state) => {
+      this.liveState = state;
+      for (const view of this.phaserOffices) view.updateAgents();
+    });
+    src.onError((err) => new Notice(`Agent Office: ${err.message}`));
+    if (this.data.squadStateSquad) src.select(this.data.squadStateSquad);
+    src.start();
+    this.runState = src;
+  }
+
+  private async openPhaserOffice() {
+    const leaf = this.app.workspace.getLeaf(true);
+    await leaf.setViewState({ type: PHASER_OFFICE_VIEW, active: true });
+  }
+
+  private getSquadStateForPhaser(): SquadState | null {
+    // A live run wins. Without one the office still shows the vault's agents, idle —
+    // which is what anyone who installed from the store sees.
+    if (this.liveState) return this.liveState;
+
+    const agents = this.registry.all();
+    const now = new Date().toISOString();
+    return {
+      squad: "",
+      status: "running",
+      step: { current: 0, total: 0, label: "" },
+      agents: agents.map((a, i) => ({
+        id: a.name,
+        name: displayName(a),
+        icon: a.icon || "🤖",
+        status: "idle" as PhaserAgentStatus,
+        gender: (i % 2 === 0 ? "female" : "male") as "male" | "female",
+        desk: { col: 0, row: 0 },   // 0 = let the office lay the desks out itself
+      })),
+      handoff: null,
+      startedAt: now,
+      updatedAt: now,
+    };
   }
 
   // Parse "@Agent: rest" on a line and resolve the agent (silent — returns null if not found).

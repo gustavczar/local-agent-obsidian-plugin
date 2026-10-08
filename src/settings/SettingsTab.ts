@@ -128,6 +128,39 @@ export class SettingsTab extends PluginSettingTab {
         d.setValue(data.lightProviderId).onChange(async (v) => { data.lightProviderId = v; await this.plugin.persist(); });
       });
 
+    // Live office. Untranslated on purpose for now: these strings are new and the i18n
+    // catalogue is reviewed as a whole. Empty folder = feature off, no filesystem access.
+    containerEl.createEl("h3", { text: "Live office" });
+
+    new Setting(containerEl)
+      .setName("Squad state folder")
+      .setDesc("Absolute path to a folder containing <squad>/state.json run files. Leave empty to show vault agents instead. Read-only: the plugin never writes here.")
+      .addText((tx) => tx
+        .setPlaceholder("C:\path\to\squads")
+        .setValue(data.squadStateFolder)
+        .onChange(async (v) => {
+          data.squadStateFolder = v.trim();
+          await this.plugin.persist();
+          this.plugin.reloadRunStateSource();
+        }));
+
+    if (data.squadStateFolder) {
+      const squads = this.plugin.listLiveSquads();
+      new Setting(containerEl)
+        .setName("Squad to show")
+        .setDesc(squads.length ? "Pick one, or let the office follow whichever run is active." : "No state.json found in that folder yet.")
+        .addDropdown((d) => {
+          d.addOption("", "Active run (automatic)");
+          for (const name of squads) d.addOption(name, name);
+          d.setValue(data.squadStateSquad).onChange(async (v) => {
+            data.squadStateSquad = v;
+            await this.plugin.persist();
+            this.plugin.reloadRunStateSource();
+          });
+        })
+        .addButton((b) => b.setButtonText("Refresh").onClick(() => this.display()));
+    }
+
     new Setting(containerEl).setDesc(tr("set.keysWarning"))
       .addButton((b) => b.setButtonText(tr("set.reloadAgents")).onClick(async () => { await this.plugin.registry.load(); new Notice(tr("notice.agentsReloaded")); }));
   }

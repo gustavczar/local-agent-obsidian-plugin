@@ -38,3 +38,39 @@ describe("AgentRegistry", () => {
     expect(spy).toHaveBeenCalledOnce();
   });
 });
+
+describe("AgentRegistry — duplicate names", () => {
+  // A copied agent file keeps the original's frontmatter `name`. It used to overwrite
+  // the original in the map, so both the copy and the original went missing silently.
+  const dupes = () => fakeApp([
+    { path: "Agents/ledger.md", fm: { name: "ledger" }, body: "You are Ledger." },
+    { path: "Agents/teste.md", fm: { name: "ledger" }, body: "A copy." },
+  ]);
+
+  it("keeps the first file and does not lose it to the copy", async () => {
+    const reg = new AgentRegistry(dupes(), "Agents");
+    await reg.load();
+
+    expect(reg.all()).toHaveLength(1);
+    expect(reg.get("ledger")!.filePath).toBe("Agents/ledger.md");
+  });
+
+  it("reports the ignored file so the user can be told why it vanished", async () => {
+    const reg = new AgentRegistry(dupes(), "Agents");
+    await reg.load();
+
+    expect(reg.duplicates()).toEqual([
+      { name: "ledger", kept: "Agents/ledger.md", ignored: "Agents/teste.md" },
+    ]);
+  });
+
+  it("reports nothing for a clean folder", async () => {
+    const reg = new AgentRegistry(fakeApp([
+      { path: "Agents/a.md", fm: { name: "a" }, body: "x" },
+      { path: "Agents/b.md", fm: { name: "b" }, body: "y" },
+    ]), "Agents");
+    await reg.load();
+
+    expect(reg.duplicates()).toEqual([]);
+  });
+});

@@ -9,6 +9,34 @@ export interface Agent {
   accent?: string;       // optional frontmatter `color`/`accent` (any CSS color) for the avatar
 }
 
+export type PhaserAgentStatus = "idle" | "working" | "done" | "checkpoint" | "delivering";
+
+export interface PhaserAgent {
+  id: string;
+  name: string;
+  icon: string;
+  status: PhaserAgentStatus;
+  gender?: "male" | "female";
+  desk: { col: number; row: number };
+}
+
+export interface SquadHandoff {
+  from: string;
+  to: string;
+  message: string;
+  completedAt: string;
+}
+
+export interface SquadState {
+  squad: string;
+  status: "running" | "checkpoint" | "completed";
+  step: { current: number; total: number; label: string };
+  agents: PhaserAgent[];
+  handoff: SquadHandoff | null;
+  startedAt: string;
+  updatedAt: string;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;

@@ -12,13 +12,16 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "esbuild": "^0.20.0",
-    "eslint": "^9.39.4",
+    "@types/node": "^20.19.43",
+    "esbuild": "^0.20.2",
+    "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.3.0",
-    "obsidian": "latest",
-    "typescript": "^5.4.0",
+    "obsidian": "^1.13.1",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1",
-    "vitest": "^1.4.0"
+    "vitest": "^1.6.1"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
   }
 }

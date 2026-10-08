@@ -16,6 +16,10 @@ export interface PersistedData {
   economyMode: boolean;      // force lean context everywhere
   maxTokens: number;         // cap on response tokens (0 = provider default)
   lightProviderId: string;   // cheap/fast provider for brainstorm/squad/routing (empty = use active)
+  // Live office: absolute path to a folder of `<squad>/state.json` run files.
+  // Empty (the default) keeps the office showing vault agents, with no filesystem access.
+  squadStateFolder: string;
+  squadStateSquad: string;   // pinned squad name; empty = pick the active one automatically
 }
 
 export const DEFAULT_SETTINGS: PersistedData = {
@@ -32,6 +36,8 @@ export const DEFAULT_SETTINGS: PersistedData = {
   economyMode: false,
   maxTokens: 0,
   lightProviderId: "",
+  squadStateFolder: "",
+  squadStateSquad: "",
 };
 
 export function withDefaults(raw: Partial<PersistedData> | null): PersistedData {
@@ -50,5 +56,7 @@ export function withDefaults(raw: Partial<PersistedData> | null): PersistedData 
     economyMode: raw.economyMode ?? DEFAULT_SETTINGS.economyMode,
     maxTokens: raw.maxTokens ?? DEFAULT_SETTINGS.maxTokens,
     lightProviderId: raw.lightProviderId ?? DEFAULT_SETTINGS.lightProviderId,
+    squadStateFolder: raw.squadStateFolder ?? DEFAULT_SETTINGS.squadStateFolder,
+    squadStateSquad: raw.squadStateSquad ?? DEFAULT_SETTINGS.squadStateSquad,
   };
 }
